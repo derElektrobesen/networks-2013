@@ -26,7 +26,7 @@ int create_socket() {
 		exit(1);
 	}
 
-	if (listen(listener, QUE_NUM) < 0) {
+	if (listen(listener, SELECT_QUEUE_LEN) < 0) {
 		perror("listen failure!");
 		exit(1);
 	}

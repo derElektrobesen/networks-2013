@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <netinet/in.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -20,6 +21,6 @@
     perror("Proto is required\n");
 #endif
 
-typedef char[INET_ADDR_LEN] inet_addr;
+typedef char inet_addr[INET_ADDR_LEN];
 
 #endif
