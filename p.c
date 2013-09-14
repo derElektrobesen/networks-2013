@@ -1,6 +1,8 @@
 #include "network.h"
 #include "config.h"
-#include "arpa/inet.h"
+
+#include <arpa/inet.h>
+#include <strings.h>
 
 #define message "Hello, Pavel!\n"
 #define MAXSLEEP 10
@@ -13,16 +15,25 @@ int main()
     struct sockaddr_in addr;    
     in_addr_t ip_addres;
     inet_ip_addr addres;
+    struct hostent *server;
+    
+    server = gethostbyname(HOST);
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket syscall error!\n");
         exit(-1);
     }
        
+    bzero((char *) &addr, sizeof(addr));
     addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&addr.sin_addr.s_addr, server->h_length);
+    addr.sin_port = htons(PORT);
+
+
+    /*addr.sin_family = AF_INET;
     addr.sin_port = htons(PORT); 
     ip_addres = inet_pton(AF_INET, HOST, &addres);;//htonl(INADDR_LOOPBACK);
-    addr.sin_addr.s_addr = ip_addres;
+    addr.sin_addr.s_addr = ip_addres;*/
 
     if(connect_retry(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
