@@ -29,3 +29,7 @@
         byte 4: error bits
             0:  file not founded
             1:  timeout
+
+3. Вопросы к Алешину
+    Нужно ли ставить соединение типа мост???
+
