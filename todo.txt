@@ -1,0 +1,31 @@
+1. Чтение конфиг файла
+2. Протокол обмена
+    key\0len\0action\0data
+    key:    Ключ, однозначно идентифицирующий клиентов (num) (2 bytes)
+    len:    Длина data (4 bytes)
+    action: 3 bytes
+        byte 1: data bits
+            0:  personal key
+            1:  rsa pub key
+            2:  search mask
+            3:  file path
+            4:  timeout
+            5:  max_count
+        byte 2: action bits
+            0:  start search with mask
+            1:  stop search
+            2:  start download file
+            3:  stop download
+            4:  connect
+            5:  disconnect
+        byte 3: status bits
+            0:  searching
+            1:  stopped
+            2:  downloading
+            3:  search complete
+            4:  download complete
+            5:  connected
+            6:  disconnected
+        byte 4: error bits
+            0:  file not founded
+            1:  timeout
