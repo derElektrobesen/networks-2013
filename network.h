@@ -14,12 +14,13 @@
 
 #include "config.h"
 
-#ifdef IP_V4        /* IP ver.4 */
+#ifdef IP_V4        /* IP ver.4             */
     typedef uint32_t inet_ip_addr;
-#elif defined IP_V6 /* IP ver.6 */
+#elif defined IP_V6 /* IP ver.6             */
     typedef char inet_ip_addr[16];
-#else
+#else               /* IP proto undefined   */
     perror("Proto is required\n");
+    exit(1);
 #endif
 
 #endif

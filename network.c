@@ -8,7 +8,7 @@ int create_socket() {
 	fd_set set;
 	struct timeval tv;
      
-	tv.tv_sec = 10;
+	tv.tv_sec = 10000;
 	tv.tv_usec = 0; 
 
 	if ((listener = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
