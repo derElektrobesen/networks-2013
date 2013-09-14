@@ -64,3 +64,7 @@ int create_socket() {
 	}
 	return 0;
 }
+
+int main() {
+    create_socket();
+}
