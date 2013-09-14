@@ -14,14 +14,10 @@
 #include <stdint.h>
 
 #include "config.h"
+#include "macro.h"
 
-#ifdef IP_V4        /* IP ver.4             */
-    typedef uint32_t inet_ip_addr;
-#elif defined IP_V6 /* IP ver.6             */
-    typedef char inet_ip_addr[16];
-#else               /* IP proto undefined   */
-    perror("Proto is required\n");
-    exit(1);
-#endif
+;
+static const size_t BUF_MAX_LEN = 1024;
+typedef void (*socket_callback)(const char *recieved_data, int data_len); 
 
 #endif

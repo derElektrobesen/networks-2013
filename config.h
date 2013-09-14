@@ -1,11 +1,9 @@
 #ifndef CONFIG_C
 #define CONFIG_C
 
-#define HOST                "192.168.115.113"
-#define PORT                7777
+#define DEBUG
 
-#define SELECT_QUEUE_LEN    5
-
-#define IP_V4   /* Proto */
+const uint16_t      PORT                    = 7777;
+const int           SELECT_QUEUE_LEN        = 5
 
 #endif
