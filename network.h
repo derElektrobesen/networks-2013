@@ -16,8 +16,7 @@
 #include "config.h"
 #include "macro.h"
 
-;
 static const size_t BUF_MAX_LEN = 1024;
-typedef void (*socket_callback)(const char *recieved_data, int data_len); 
+typedef void (*socket_callback)(const char *recieved_data, ssize_t data_len); 
 
 #endif

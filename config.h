@@ -4,6 +4,6 @@
 #define DEBUG
 
 const uint16_t      PORT                    = 7777;
-const int           SELECT_QUEUE_LEN        = 5
+const int           SELECT_QUEUE_LEN        = 5;
 
 #endif
