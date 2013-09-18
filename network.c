@@ -71,6 +71,7 @@ int recieve_messages(int sock, socket_callback callback) {
     fd_set set;
     int max_sock_fd = sock;
     int i;
+    char *err_str = "Connection refused!\n";
 
     make_sock_nonblock(sock);
 
@@ -90,9 +91,15 @@ int recieve_messages(int sock, socket_callback callback) {
             }
             log("Accepted connection: %d\n", cli_sock);
             make_sock_nonblock(cli_sock);
-            sockets[sockets_count++] = cli_sock;
-            if (cli_sock > max_sock_fd)
-                max_sock_fd = cli_sock;
+            if (sockets_count > MAX_CONNECTIONS - 1) {
+                log("Connection refused: too many connections\n");
+                send(cli_sock, err_str, strlen(err_str), 0);
+                close(cli_sock);
+            } else {
+                sockets[sockets_count++] = cli_sock;
+                if (cli_sock > max_sock_fd)
+                    max_sock_fd = cli_sock;
+            }
         } else {
             max_sock_fd = process_sockets(&set, callback, sockets, &sockets_count);
             if (max_sock_fd < sock)
