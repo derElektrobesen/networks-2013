@@ -2,25 +2,44 @@
 
 int init_server(struct sockaddr_in *addr, int queue_len) {
     int sock = -1;
+    int reuse = 1;
+    int err;
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        perror("Server socket failure");
-        return -1;
+        perror("[Server] socket failure");
+        err = errno;
+        goto errout;
+        //return -1;
     }
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int)) < 0) {
+        perror("[Sever] setsockopt failure\n");
+        err = errno;
+        goto errout;        
+        //return -1;
+    }
+    
     log("Server created: %d\n", sock);
 
     if (bind(sock, (struct sockaddr *)addr, sizeof(*addr)) < 0) {
-        perror("[Server socket] Bind failure");
-        return -1;
+        perror("[Server] bind failure");
+        err = errno;
+        goto errout;        
+        //return -1;
     }
 
     if (listen(sock, queue_len) < 0) { 
-        perror("[Server socket] Listen failure");
-        return -1;
+        perror("[Server] listen failure");
+        err = errno;
+        goto errout;        
+        //return -1;
     }
 
     return sock;
+    errout:
+    close(sock);    
+    errno = err;
+    return -1;
 }
 
 int make_sock_nonblock(int sock) {
