@@ -36,7 +36,7 @@ int init_server(struct sockaddr_in *addr, int queue_len) {
     }
 
     return sock;
-    errout:
+errout:
     close(sock);    
     errno = err;
     return -1;
