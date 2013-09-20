@@ -22,21 +22,19 @@ int main(int argc, char *argv[])    // add check of parameters
     hint.ai_family = AF_INET;
     hint.ai_socktype = SOCK_STREAM;
     if ((err = getaddrinfo(argv[1], PORT_CHAR, &hint, &ailist)) < 0) {
-        perror("[Client] getaddrinfo failure\n");
-        err = errno;
-        goto errout;
+        err = errno;        
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(err));        
+        exit(-1);
     }
     
     if ((sock = socket(ailist->ai_family, ailist->ai_socktype, ailist->ai_protocol)) < 0) {
         perror("[Client] socket failure\n");
-        err = errno;
-        goto errout;;
+        exit(-1);        
     }
     
     if (connect_retry(sock, ailist->ai_addr, ailist->ai_addrlen) < 0) {
         perror("[Client] connection failure\n");
-        err = errno;
-        goto errout;
+        exit(-1);
     } else if (send(sock, message, sizeof(message), 0) > 0)
         printf("Client has sent message: %s", message);
 
@@ -52,11 +50,8 @@ int main(int argc, char *argv[])    // add check of parameters
         }
         printf("Trying another connection!\n");
     }*/
-
+    freeaddrinfo(ailist);
     return 0;
-    errout:
-    errno = err;
-    return -1;
 }
 
 
