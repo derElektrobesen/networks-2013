@@ -19,6 +19,7 @@
 
 static const size_t BUF_MAX_LEN = 1024;
 static const int MAX_CONNECTIONS = 128;
+static const int RETRY_TIMEOUT = 2;
 
 typedef int (*socket_callback)(int sender_sock, 
         const char *recieved_data, ssize_t data_len); 
