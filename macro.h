@@ -4,12 +4,15 @@
 #include "config.h"
 
 /* For logging */
-#define SERVER 0
-#define CLIENT 1
+#define SERVER      0
+#define CLIENT      1
+#define BROADCAST   2
 
 #ifdef DEBUG
 #   define print_cli(cli) \
-    (cli == SERVER ? "Server" : (cli == CLIENT ? "Client" : "Other"))
+    (cli == SERVER ? "Server" : \
+    (cli == CLIENT ? "Client" : \
+    (cli == BROADCAST ? "Broadcast" : "Other")))
 
 #   define log(cli, f_str, args...) \
         fprintf(stdout, "[ %s ] " f_str "\n", print_cli(cli), ##args)

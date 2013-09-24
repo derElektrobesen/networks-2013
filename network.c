@@ -7,12 +7,13 @@ static int init_server_err(int sock, int err_no) {
     return -1;
 }
 
-int init_server(struct sockaddr_in *addr, int queue_len) {
+int init_server(struct sockaddr_in *addr, int queue_len, 
+        int proto) {
     int sock = -1;
     int reuse = 1;
     int err_no;
 
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    sock = socket(AF_INET, proto, 0);
     if (sock < 0) {
         err_n(SERVER, "socket failure");
         err_no = errno;
@@ -31,8 +32,8 @@ int init_server(struct sockaddr_in *addr, int queue_len) {
         err_no = errno;
         return init_server_err(sock, err_no);
     }
-    return sock;
-    if (listen(sock, queue_len) < 0) { 
+
+    if (proto == SOCK_STREAM && listen(sock, queue_len) < 0) { 
         err_n(SERVER, "listen failure");
         err_no = errno;
         return init_server_err(sock, err_no);
@@ -179,6 +180,74 @@ int recieve_messages(int sock, socket_callback callback) {
     return 0;
 }
 
+inline int check_detected_conn(const char *msg, size_t len) {
+    return strncmp(msg, IDENT_MSG, len);
+}
+inline int prepare_broadcast_msg(char *msg, int max_len) {
+    return snprintf(msg, max_len, "%s", IDENT_MSG); 
+}
+
+int wait_connection(struct sockaddr_in *addr) {
+    int srv_sock = -1;
+    struct sockaddr_in sock_addr;
+    char buf[BUF_MAX_LEN];
+    int flag = 0;
+    socklen_t addr_len;
+
+    sock_addr.sin_family = AF_INET;
+    sock_addr.sin_port = htons(PORT);
+    sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    srv_sock = init_server(&sock_addr, SOMAXCONN, SOCK_DGRAM);
+    if (srv_sock == -1)
+        return -1;
+
+    log(CLIENT, "waiting connection");
+    while (!flag) {
+        if (recvfrom(srv_sock, buf, BUF_MAX_LEN, 0, (struct sockaddr *)addr, &addr_len) > 0) {
+            log(SERVER, "detected connection with message: %s", buf);
+            if (check_detected_conn(buf, BUF_MAX_LEN) == 0) 
+                flag = 1;
+        }
+    }
+    return 0;
+}
+
+int broadcast() {
+    int sock;
+    struct sockaddr_in brc_addr;
+    int brc_perms;
+    int msg_len;
+    char *brc_ip = "255.255.255.255";
+    char msg[BUF_MAX_LEN];
+
+    if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+        err_n(BROADCAST, "socket failure");
+        return -1;
+    }
+
+    brc_perms = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *)&brc_perms, sizeof(brc_perms)) < 0) {
+        err_n(BROADCAST, "setsockopt failure");
+        return -1;
+    }
+
+    msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);
+
+    memset(&brc_addr, 0, sizeof(brc_addr));
+    brc_addr.sin_family = AF_INET;
+    brc_addr.sin_addr.s_addr = inet_addr(brc_ip);
+    brc_addr.sin_port = htons(PORT);
+
+    log(BROADCAST, "sending broadcast message");
+    if (sendto(sock, msg, msg_len, 0, (struct sockaddr *)&brc_addr,
+                sizeof(brc_addr)) != msg_len) {
+        err_n(BROADCAST, "sendto failure");
+        return -1;
+    }
+    return 0;
+}
+
 int create_server(socket_callback callback) {
     int srv_sock = -1;
     struct sockaddr_in addr;
@@ -187,18 +256,9 @@ int create_server(socket_callback callback) {
     addr.sin_port = htons(PORT);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    srv_sock = init_server(&addr, SOMAXCONN);
+    srv_sock = init_server(&addr, SOMAXCONN, SOCK_STREAM);
     if (srv_sock == -1)
         return -1;
-
-    char buf[255];
-    char sss[256];
-    socklen_t l;
-    while (1) {
-        if (recvfrom(srv_sock, buf, 255, 0, (struct sockaddr *)sss, &l) > 0)
-            log(CLIENT, "%s", buf);
-        sleep(2);
-    }
 
     recieve_messages(srv_sock, callback);
     close(srv_sock);
@@ -213,18 +273,34 @@ int process_message(int sender_sock, const char *msg, ssize_t count) {
 }
 
 int main(int argc, char *argv[]) {
+    int result = 0;
 #ifdef SRV
-    create_server(process_message);
+    if (fork() == 0) {
+        while (1) {
+            broadcast();
+            sleep(2);
+        }
+    } else 
+        create_server(process_message);
 #elif defined CLI
     char *msg = "Bakit zadrot";
-    if (argc >= 2) {
-        int s;
-        s = create_client(argv[1]);
+    struct sockaddr_in srv_addr;
+    char srv_ch_addr[INET_ADDRSTRLEN];
+    int s;
+    
+    wait_connection(&srv_addr);
+    if (inet_ntop(AF_INET, &(srv_addr.sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
+        log(CLIENT, "Accepted server: %s", srv_ch_addr);
+
+        s = create_client(srv_ch_addr);
         send(s, msg, strlen(msg), 0);
-    } else
-        err(-1, "Address is required");
+    } else {
+        err(CLIENT, "inet_ntop failure");
+        result = 1;
+    }
 #else
-    err("Compile define option is required");
+    err(-1, "Compile define option is required");
+    result = 1;
 #endif
-    return 0;
+    return result;
 }
