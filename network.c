@@ -12,7 +12,7 @@ int init_server(struct sockaddr_in *addr, int queue_len) {
     int reuse = 1;
     int err_no;
 
-    sock = socket(AF_INET, SOCK_STREAM, 0);
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         err_n(SERVER, "socket failure");
         err_no = errno;
@@ -31,7 +31,7 @@ int init_server(struct sockaddr_in *addr, int queue_len) {
         err_no = errno;
         return init_server_err(sock, err_no);
     }
-
+    return sock;
     if (listen(sock, queue_len) < 0) { 
         err_n(SERVER, "listen failure");
         err_no = errno;
@@ -190,6 +190,15 @@ int create_server(socket_callback callback) {
     srv_sock = init_server(&addr, SOMAXCONN);
     if (srv_sock == -1)
         return -1;
+
+    char buf[255];
+    char sss[256];
+    socklen_t l;
+    while (1) {
+        if (recvfrom(srv_sock, buf, 255, 0, (struct sockaddr *)sss, &l) > 0)
+            log(CLIENT, "%s", buf);
+        sleep(2);
+    }
 
     recieve_messages(srv_sock, callback);
     close(srv_sock);
