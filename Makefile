@@ -1,6 +1,7 @@
 CC=gcc
 
 CFLAGS=-Wall
+FLAGS=-pthread -lpthread
 
 SRV=SRV
 CLI=CLI
@@ -11,5 +12,5 @@ CLI_RES=cli
 SRC=network.c
 
 all: 
-	$(CC) $(SRC) -D$(SRV) $(CFLAGS) -o $(SRV_RES)
-	$(CC) $(SRC) -D$(CLI) $(CFLAGS) -o $(CLI_RES)
+	$(CC) $(SRC) -D$(SRV) $(FLAGS) $(CFLAGS) -o $(SRV_RES)
+	$(CC) $(SRC) -D$(CLI) $(FLAGS) $(CFLAGS) -o $(CLI_RES)

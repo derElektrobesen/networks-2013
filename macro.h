@@ -15,9 +15,9 @@
     (cli == BROADCAST ? "Broadcast" : "Other")))
 
 #   define log(cli, f_str, args...) \
-        fprintf(stdout, "[ %s ] " f_str "\n", print_cli(cli), ##args)
+        fprintf(stdout, "[ %9s ] " f_str "\n", print_cli(cli), ##args)
 #   define err(cli, f_str, args...) \
-        fprintf(stderr, "[ %s ] " f_str "\n", print_cli(cli), ##args)
+        fprintf(stderr, "[ %9s ] " f_str "\n", print_cli(cli), ##args)
 #   define err_n(cli, f_str, args...) \
         err(cli, f_str ": %s", strerror(errno), ##args) /* \n don't needed */
 

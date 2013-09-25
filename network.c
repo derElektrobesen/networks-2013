@@ -51,9 +51,9 @@ static int init_client_err(int sock, int err_no) {
 
 int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen) {
     while (1) {
-        log(CLIENT, "Trying to connect...");
+        log(CLIENT, "trying to connect...");
 		if (connect(sockfd, addr, alen) == 0) {
-            log(CLIENT, "Connection successfull.");
+            log(CLIENT, "connection successfull.");
 			return 0;
         }
         log(CLIENT, "Connectin failure.");
@@ -125,6 +125,8 @@ int process_sockets(fd_set *set, socket_callback callback,
                 offset++;
                 i--;
             } else {
+                if (buf[bytes_read - 1] == '\n')
+                    bytes_read--;
                 buf[bytes_read] = 0;
                 if (callback)
                     callback(*(opened_sockets + i), buf, bytes_read);
@@ -205,7 +207,7 @@ int wait_connection(struct sockaddr_in *addr) {
     log(CLIENT, "waiting connection");
     while (!flag) {
         if (recvfrom(srv_sock, buf, BUF_MAX_LEN, 0, (struct sockaddr *)addr, &addr_len) > 0) {
-            log(SERVER, "detected connection with message: %s", buf);
+            log(CLIENT, "detected connection with message: %s", buf);
             if (check_detected_conn(buf, BUF_MAX_LEN) == 0) 
                 flag = 1;
         }
@@ -213,7 +215,7 @@ int wait_connection(struct sockaddr_in *addr) {
     return 0;
 }
 
-int broadcast() {
+void *broadcast_start(void *arg) {
     int sock;
     struct sockaddr_in brc_addr;
     int brc_perms;
@@ -223,13 +225,13 @@ int broadcast() {
 
     if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
         err_n(BROADCAST, "socket failure");
-        return -1;
+        return NULL;
     }
 
     brc_perms = 1;
     if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *)&brc_perms, sizeof(brc_perms)) < 0) {
         err_n(BROADCAST, "setsockopt failure");
-        return -1;
+        return NULL;
     }
 
     msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);
@@ -239,13 +241,25 @@ int broadcast() {
     brc_addr.sin_addr.s_addr = inet_addr(brc_ip);
     brc_addr.sin_port = htons(PORT);
 
-    log(BROADCAST, "sending broadcast message");
-    if (sendto(sock, msg, msg_len, 0, (struct sockaddr *)&brc_addr,
-                sizeof(brc_addr)) != msg_len) {
-        err_n(BROADCAST, "sendto failure");
-        return -1;
+    while (1) {
+        log(BROADCAST, "sending broadcast message");
+        if (sendto(sock, msg, msg_len, 0, (struct sockaddr *)&brc_addr, sizeof(brc_addr)) != msg_len)
+            err_n(BROADCAST, "sendto failure");
+        sleep(RETRY_TIMEOUT);
     }
-    return 0;
+    return NULL;
+}
+
+inline int broadcast(pthread_t *thread) {
+    int err = 0;
+
+    err = pthread_create(thread, NULL, &broadcast_start, NULL);
+    if (err != 0)
+        err_n(BROADCAST, "pthread_create failure");
+    else
+        log(BROADCAST, "broadcast thread created successfully");
+
+    return err;
 }
 
 int create_server(socket_callback callback) {
@@ -266,7 +280,7 @@ int create_server(socket_callback callback) {
 }
 
 int process_message(int sender_sock, const char *msg, ssize_t count) {
-    char *message = "Message recieved!";
+    char *message = "Message recieved!\n";
     log(CLIENT, "Message recieved from socket %d: %s", sender_sock, msg);
     send(sender_sock, message, strlen(message), 0);
     return 0;
@@ -275,13 +289,9 @@ int process_message(int sender_sock, const char *msg, ssize_t count) {
 int main(int argc, char *argv[]) {
     int result = 0;
 #ifdef SRV
-    if (fork() == 0) {
-        while (1) {
-            broadcast();
-            sleep(2);
-        }
-    } else 
-        create_server(process_message);
+    pthread_t thread;
+    broadcast(&thread);
+    create_server(process_message);
 #elif defined CLI
     char *msg = "Bakit zadrot";
     struct sockaddr_in srv_addr;
@@ -290,7 +300,7 @@ int main(int argc, char *argv[]) {
     
     wait_connection(&srv_addr);
     if (inet_ntop(AF_INET, &(srv_addr.sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
-        log(CLIENT, "Accepted server: %s", srv_ch_addr);
+        log(CLIENT, "accepted server: %s", srv_ch_addr);
 
         s = create_client(srv_ch_addr);
         send(s, msg, strlen(msg), 0);
