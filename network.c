@@ -196,12 +196,12 @@ inline int prepare_broadcast_msg(char *msg, int max_len) {
 int wait_connection(struct sockaddr_in *addr, int srv_sock) {
     char buf[BUF_MAX_LEN];
     int flag = 0;
-    socklen_t addr_len;
+    socklen_t addr_len = sizeof *addr;
 
     log(CLIENT, "waiting connection");
     while (!flag) {
         if (recvfrom(srv_sock, buf, BUF_MAX_LEN, 0, (struct sockaddr *)addr, &addr_len) > 0) {
-            log(CLIENT, "detected connection from %x with message: %s", addr->sin_addr.s_addr, buf);
+            log(BROADCAST, "detected connection with message: %s", buf);
             if (check_detected_conn(buf, BUF_MAX_LEN) == 0) 
                 flag = 1;
         }
@@ -285,7 +285,7 @@ int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     int s, rc, r = 0;
 
     if (inet_ntop(AF_INET, &(srv_addr->sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
-        log(CLIENT, "accepted server: %s", srv_ch_addr);
+        log(BROADCAST, "accepted server: %s", srv_ch_addr);
         s = create_client(srv_ch_addr);
 
         rc = pthread_rwlock_wrlock(&(q->rwlock));
@@ -297,7 +297,7 @@ int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
         rc = pthread_rwlock_unlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
     } else {
-        err(CLIENT, "inet_ntop failure");
+        err(BROADCAST, "inet_ntop failure");
         r = 1;
     }
     return r;
@@ -310,6 +310,8 @@ void *wait_servers(void *arg) {
     int i, flag;
     int srv_sock;
     int rc;
+
+    log(CLIENT, "client broadcast thread created");
 
     sock_addr.sin_family = AF_INET;
     sock_addr.sin_port = htons(PORT);
@@ -333,10 +335,10 @@ void *wait_servers(void *arg) {
         rc = pthread_rwlock_unlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
 
-        log(CLIENT, "addr: %x", srv_addr.sin_addr.s_addr);
         if (flag == 0)
             accept_conn(q, &srv_addr);
-        log(CLIENT, "addr: %x", srv_addr.sin_addr.s_addr);
+        else
+            log(BROADCAST, "connection is already established: pass");
     }
     close(srv_sock);
     return NULL;
@@ -372,7 +374,10 @@ int recv_srv_msg(fd_set *set, struct sockets_queue *q) {
                 close(q->sockets[i]);
                 q->count--;
             } else {
-               process_srv_message(q->sockets[i], msg, bytes_read);
+                if (msg[bytes_read - 1] == '\n')
+                    bytes_read--;
+                msg[bytes_read] = 0;
+                process_srv_message(q->sockets[i], msg, bytes_read);
             }
         }
     }
@@ -389,6 +394,8 @@ void *recieve_servers_messages(void *arg) {
     int max_sock_fd;
     struct sockets_queue *q = (struct sockets_queue *)arg;
 
+    log(CLIENT, "server messages reciever thread created");
+
     while (1) {
         FD_ZERO(&set);
         max_sock_fd = -1;
@@ -401,12 +408,16 @@ void *recieve_servers_messages(void *arg) {
             if (max_sock_fd < q->sockets[i])
                 max_sock_fd = q->sockets[i];
         }
-
-        rc = pthread_rwlock_unlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
-
-        if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0) {
-            recv_srv_msg(&set, q);
+        if (q->count == 0) {
+            rc = pthread_rwlock_unlock(&(q->rwlock));
+            check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+            sleep(RETRY_TIMEOUT);
+        } else {
+            rc = pthread_rwlock_unlock(&(q->rwlock));
+            check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+            if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0) {
+                recv_srv_msg(&set, q);
+            }
         }
     }
     return NULL;
@@ -444,15 +455,17 @@ int start_server() {
 }
 
 int start_client() {
-    pthread_t brc_thread;
+    pthread_t brc_thread, srv_thread;
     struct sockets_queue q = { .rwlock = PTHREAD_RWLOCK_INITIALIZER };
     int err;
 
     err = pthread_create(&brc_thread, NULL, &wait_servers, &q);
     if (err != 0)
         err_n(CLIENT, "pthread_create failure");
-    else
-        log(CLIENT, "broadcast thread created successfully");
+
+    err = pthread_create(&srv_thread, NULL, &recieve_servers_messages, &q);
+    if (err != 0)
+        err_n(CLIENT, "pthread_create failure");
 
     process_servers(&q);
     pthread_rwlock_destroy(&(q.rwlock));
