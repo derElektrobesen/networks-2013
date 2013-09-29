@@ -28,7 +28,7 @@
 #   endif
 
 #   define err_n(cli, f_str, args...) \
-        err(cli, f_str " : %s", strerror(errno), ##args) /* \n don't needed */
+        err(cli, f_str " : %s", ##args, strerror(errno)) /* \n don't needed */
 #   define check_rwlock(cli, rc, fname) \
         rc == 0 ? 0 : err_n(cli, fname " failure");
 

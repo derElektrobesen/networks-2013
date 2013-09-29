@@ -42,6 +42,14 @@ int init_server(struct sockaddr_in *addr, int queue_len,
     return sock;
 }
 
+int make_sock_nonblock(int sock) {
+    int e;
+    e = fcntl(sock, F_SETFL, O_NONBLOCK);
+    if (e < 0) 
+        err_n(-1, "fcntl failure");
+    return e;
+}
+
 static int init_client_err(int sock, int err_no) {
     if (sock)
         close(sock);
@@ -49,14 +57,16 @@ static int init_client_err(int sock, int err_no) {
     return -1;
 }
 
-int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen) {
-    while (1) {
+int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen, int max_try) {
+    int i = 0;
+    while (i < max_try) {
+        i++;
         log(CLIENT, "trying to connect...");
 		if (connect(sockfd, addr, alen) == 0) {
             log(CLIENT, "connection successfull.");
 			return 0;
         }
-        log(CLIENT, "connectin failure.");
+        log(CLIENT, "connection failure.");
         sleep(RETRY_TIMEOUT);
 	}
 	return -1;
@@ -86,21 +96,15 @@ int create_client(const char *addr) {
         return init_client_err(-1, err_no);        
     }
     
-    if (connect_retry(sock, ailist->ai_addr, ailist->ai_addrlen) < 0) {
+    make_sock_nonblock(sock);
+
+    if (connect_retry(sock, ailist->ai_addr, ailist->ai_addrlen, 5) < 0) {
         err_no = errno;
         err_n(CLIENT, "connection failure\n");
         return init_client_err(sock, err_no);
     } 
     freeaddrinfo(ailist);
     return sock;
-}
-
-int make_sock_nonblock(int sock) {
-    int fcntl_flags;
-    fcntl(sock, F_GETFL, &fcntl_flags);
-    fcntl_flags |= O_NONBLOCK;
-    fcntl(sock, F_SETFL, fcntl_flags);
-    return 0;
 }
 
 int process_sockets(fd_set *set, socket_callback callback, 
@@ -189,25 +193,15 @@ inline int prepare_broadcast_msg(char *msg, int max_len) {
     return snprintf(msg, max_len, "%s", IDENT_MSG); 
 }
 
-int wait_connection(struct sockaddr_in *addr) {
-    int srv_sock = -1;
-    struct sockaddr_in sock_addr;
+int wait_connection(struct sockaddr_in *addr, int srv_sock) {
     char buf[BUF_MAX_LEN];
     int flag = 0;
     socklen_t addr_len;
 
-    sock_addr.sin_family = AF_INET;
-    sock_addr.sin_port = htons(PORT);
-    sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    srv_sock = init_server(&sock_addr, SOMAXCONN, SOCK_DGRAM);
-    if (srv_sock == -1)
-        return -1;
-
     log(CLIENT, "waiting connection");
     while (!flag) {
         if (recvfrom(srv_sock, buf, BUF_MAX_LEN, 0, (struct sockaddr *)addr, &addr_len) > 0) {
-            log(CLIENT, "detected connection with message: %s", buf);
+            log(CLIENT, "detected connection from %x with message: %s", addr->sin_addr.s_addr, buf);
             if (check_detected_conn(buf, BUF_MAX_LEN) == 0) 
                 flag = 1;
         }
@@ -294,9 +288,6 @@ int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
         log(CLIENT, "accepted server: %s", srv_ch_addr);
         s = create_client(srv_ch_addr);
 
-        /* TODO: Is it correctly for client? */
-        make_sock_nonblock(s);
-
         rc = pthread_rwlock_wrlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_wrlock");
 
@@ -314,14 +305,22 @@ int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
 
 void *wait_servers(void *arg) {
     struct sockaddr_in srv_addr;
+    struct sockaddr_in sock_addr;
     struct sockets_queue *q = (struct sockets_queue *)arg;
     int i, flag;
+    int srv_sock;
     int rc;
 
+    sock_addr.sin_family = AF_INET;
+    sock_addr.sin_port = htons(PORT);
+    sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    srv_sock = init_server(&sock_addr, SOMAXCONN, SOCK_DGRAM);
+    if (srv_sock == -1)
+        return NULL;
+
     while (1) {
-        log(CLIENT, "waiting connection");
-        wait_connection(&srv_addr);
-        log(CLIENT, "wait complete");
+        wait_connection(&srv_addr, srv_sock);
 
         rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
@@ -334,9 +333,12 @@ void *wait_servers(void *arg) {
         rc = pthread_rwlock_unlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
 
+        log(CLIENT, "addr: %x", srv_addr.sin_addr.s_addr);
         if (flag == 0)
             accept_conn(q, &srv_addr);
+        log(CLIENT, "addr: %x", srv_addr.sin_addr.s_addr);
     }
+    close(srv_sock);
     return NULL;
 }
 
