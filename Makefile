@@ -1,7 +1,7 @@
 CC=gcc
 
 CFLAGS=-Wall
-FLAGS=-pthread -lpthread
+FLAGS=-pthread -lpthread -D_MULTI_THREADED
 
 SRV=SRV
 CLI=CLI

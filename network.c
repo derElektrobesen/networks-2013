@@ -25,7 +25,7 @@ int init_server(struct sockaddr_in *addr, int queue_len,
         return init_server_err(sock, err_no);
     }
     
-    log(SERVER, "Server created: %d", sock);
+    log(SERVER, "server created: %d", sock);
 
     if (bind(sock, (struct sockaddr *)addr, sizeof(*addr)) < 0) {
         err_n(SERVER, "bind failure");
@@ -56,7 +56,7 @@ int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen) {
             log(CLIENT, "connection successfull.");
 			return 0;
         }
-        log(CLIENT, "Connectin failure.");
+        log(CLIENT, "connectin failure.");
         sleep(RETRY_TIMEOUT);
 	}
 	return -1;
@@ -119,7 +119,7 @@ int process_sockets(fd_set *set, socket_callback callback,
         if (FD_ISSET(*(opened_sockets + i), set)) {
             bytes_read = recv(*(opened_sockets + i), buf, BUF_MAX_LEN, 0);
             if (bytes_read <= 0) {
-                log(CLIENT, "Connection closed: %d", *(opened_sockets + i));
+                log(CLIENT, "connection closed: %d", *(opened_sockets + i));
                 close(*(opened_sockets + i));
                 (*max_index)--;
                 offset++;
@@ -144,7 +144,7 @@ int recieve_messages(int sock, socket_callback callback) {
     fd_set set;
     int max_sock_fd = sock;
     int i;
-    char *err_str = "Connection refused!\n";
+    char *err_str = "connection refused!\n";
 
     make_sock_nonblock(sock);
 
@@ -159,13 +159,13 @@ int recieve_messages(int sock, socket_callback callback) {
         if (FD_ISSET(sock, &set)) {
             cli_sock = accept(sock, NULL, NULL);
             if (cli_sock < 0) {
-                err_n(SERVER, "Accept failure!");
+                err_n(SERVER, "accept failure!");
                 continue;
             }
-            log(SERVER, "Accepted connection: %d", cli_sock);
+            log(SERVER, "accepted connection: %d", cli_sock);
             make_sock_nonblock(cli_sock);
             if (sockets_count > MAX_CONNECTIONS - 1) {
-                log(SERVER, "Connection refused: too many connections");
+                log(SERVER, "connection refused: too many connections");
                 send(cli_sock, err_str, strlen(err_str), 0);
                 close(cli_sock);
             } else {
@@ -281,7 +281,7 @@ int create_server(socket_callback callback) {
 
 int process_message(int sender_sock, const char *msg, ssize_t count) {
     char *message = "Message recieved!\n";
-    log(CLIENT, "Message recieved from socket %d: %s", sender_sock, msg);
+    log(CLIENT, "message recieved from socket %d: %s", sender_sock, msg);
     send(sender_sock, message, strlen(message), 0);
     return 0;
 }
@@ -319,7 +319,9 @@ void *wait_servers(void *arg) {
     int rc;
 
     while (1) {
+        log(CLIENT, "waiting connection");
         wait_connection(&srv_addr);
+        log(CLIENT, "wait complete");
 
         rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
@@ -441,10 +443,9 @@ int start_server() {
 
 int start_client() {
     pthread_t brc_thread;
-    struct sockets_queue q;
+    struct sockets_queue q = { .rwlock = PTHREAD_RWLOCK_INITIALIZER };
     int err;
 
-    pthread_rwlock_init(&(q.rwlock), NULL);
     err = pthread_create(&brc_thread, NULL, &wait_servers, &q);
     if (err != 0)
         err_n(CLIENT, "pthread_create failure");
