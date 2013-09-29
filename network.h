@@ -25,6 +25,7 @@ static const size_t BUF_MAX_LEN = 1024;
 static const int MAX_CONNECTIONS = MAX_CONN;
 static const int RETRY_TIMEOUT = 5;
 static const char *IDENT_MSG = "Dzhumagulov_Berezhnoy_IU_7_2013";
+static const char *message = "Bakit zadrot!";
 
 struct sockets_queue {
     int sockets[MAX_CONN];

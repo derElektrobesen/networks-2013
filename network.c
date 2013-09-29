@@ -286,28 +286,40 @@ int process_message(int sender_sock, const char *msg, ssize_t count) {
     return 0;
 }
 
-int main(int argc, char *argv[]) {
-    int result = 0;
-#ifdef SRV
-    pthread_t thread;
-    broadcast(&thread);
-    create_server(process_message);
-#elif defined CLI
-    char *msg = "Bakit zadrot";
+int start_server() {
+    pthread_t brc_thread;
+    int r = 0;
+    r = broadcast(&brc_thread);
+    if (r == 0)
+        r = create_server(process_message);
+    return r;
+}
+
+int start_client() {
     struct sockaddr_in srv_addr;
     char srv_ch_addr[INET_ADDRSTRLEN];
     int s;
+    int result;
     
     wait_connection(&srv_addr);
     if (inet_ntop(AF_INET, &(srv_addr.sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
         log(CLIENT, "accepted server: %s", srv_ch_addr);
 
         s = create_client(srv_ch_addr);
-        send(s, msg, strlen(msg), 0);
+        send(s, message, strlen(message), 0);
     } else {
         err(CLIENT, "inet_ntop failure");
         result = 1;
     }
+    return result;
+}
+
+int main(int argc, char *argv[]) {
+    int result = 0;
+#ifdef SRV
+    result = start_server();
+#elif defined CLI
+    result = start_client();
 #else
     err(-1, "Compile define option is required");
     result = 1;
