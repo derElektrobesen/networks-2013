@@ -286,6 +286,150 @@ int process_message(int sender_sock, const char *msg, ssize_t count) {
     return 0;
 }
 
+int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
+    char srv_ch_addr[INET_ADDRSTRLEN];
+    int s, rc, r = 0;
+
+    if (inet_ntop(AF_INET, &(srv_addr->sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
+        log(CLIENT, "accepted server: %s", srv_ch_addr);
+        s = create_client(srv_ch_addr);
+
+        /* TODO: Is it correctly for client? */
+        make_sock_nonblock(s);
+
+        rc = pthread_rwlock_wrlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_wrlock");
+
+        q->addrs[q->count] = srv_addr->sin_addr.s_addr;
+        q->sockets[q->count++] = s;
+
+        rc = pthread_rwlock_unlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+    } else {
+        err(CLIENT, "inet_ntop failure");
+        r = 1;
+    }
+    return r;
+}
+
+void *wait_servers(void *arg) {
+    struct sockaddr_in srv_addr;
+    struct sockets_queue *q = (struct sockets_queue *)arg;
+    int i, flag;
+    int rc;
+
+    while (1) {
+        wait_connection(&srv_addr);
+
+        rc = pthread_rwlock_rdlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
+
+        for (i = 0, flag = 0; !flag && i < q->count; i++) {
+            if (srv_addr.sin_addr.s_addr == q->addrs[i])
+                flag = 1;
+        }
+
+        rc = pthread_rwlock_unlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+
+        if (flag == 0)
+            accept_conn(q, &srv_addr);
+    }
+    return NULL;
+}
+
+int process_srv_message(int sock, const char *msg, ssize_t len) {
+    /* TODO: make server messages processing */
+    log(CLIENT, "Recieved from server %d: %s", sock, msg);
+    return 0;
+}
+
+int recv_srv_msg(fd_set *set, struct sockets_queue *q) {
+    ssize_t bytes_read;
+    char msg[BUF_MAX_LEN];
+    int i, offset;
+    int rc;
+    int locked = 0;
+
+    for (i = 0, offset = 0; i < q->count; i++) {
+        if (offset) {
+            q->sockets[i] = q->sockets[i + offset];
+            q->addrs[i] = q->addrs[i + offset];
+        }
+        if (FD_ISSET(q->sockets[i], set)) {
+            bytes_read = recv(q->sockets[i], msg, BUF_MAX_LEN, 0);
+            if (bytes_read <= 0) {
+                log(CLIENT, "server %d had been disconnected", q->sockets[i]);
+                offset++;
+                i--;
+                locked = 1;
+                rc = pthread_rwlock_wrlock(&(q->rwlock));
+                check_rwlock(CLIENT, rc, "pthread_rwlock_wrlock");
+                close(q->sockets[i]);
+                q->count--;
+            } else {
+               process_srv_message(q->sockets[i], msg, bytes_read);
+            }
+        }
+    }
+    if (locked) {
+        rc = pthread_rwlock_unlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+    }
+    return 0;
+}
+
+void *recieve_servers_messages(void *arg) {
+    fd_set set;
+    int rc, i;
+    int max_sock_fd;
+    struct sockets_queue *q = (struct sockets_queue *)arg;
+
+    while (1) {
+        FD_ZERO(&set);
+        max_sock_fd = -1;
+
+        rc = pthread_rwlock_rdlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
+
+        for (i = 0; i < q->count; i++) {
+            FD_SET(q->sockets[i], &set);
+            if (max_sock_fd < q->sockets[i])
+                max_sock_fd = q->sockets[i];
+        }
+
+        rc = pthread_rwlock_unlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+
+        if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0) {
+            recv_srv_msg(&set, q);
+        }
+    }
+    return NULL;
+}
+
+int process_servers(struct sockets_queue *q) {
+    int rc, i;
+
+    /* TODO: Remove dummy actions */
+
+    while (1) {
+        rc = pthread_rwlock_rdlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
+
+        for (i = 0; i < q->count; i++) {
+            send(q->sockets[i], message, strlen(message), 0);
+        }
+
+        rc = pthread_rwlock_unlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+
+        sleep(RETRY_TIMEOUT);
+    }
+
+    return 0;
+}
+
 int start_server() {
     pthread_t brc_thread;
     int r = 0;
@@ -296,22 +440,20 @@ int start_server() {
 }
 
 int start_client() {
-    struct sockaddr_in srv_addr;
-    char srv_ch_addr[INET_ADDRSTRLEN];
-    int s;
-    int result;
-    
-    wait_connection(&srv_addr);
-    if (inet_ntop(AF_INET, &(srv_addr.sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
-        log(CLIENT, "accepted server: %s", srv_ch_addr);
+    pthread_t brc_thread;
+    struct sockets_queue q;
+    int err;
 
-        s = create_client(srv_ch_addr);
-        send(s, message, strlen(message), 0);
-    } else {
-        err(CLIENT, "inet_ntop failure");
-        result = 1;
-    }
-    return result;
+    pthread_rwlock_init(&(q.rwlock), NULL);
+    err = pthread_create(&brc_thread, NULL, &wait_servers, &q);
+    if (err != 0)
+        err_n(CLIENT, "pthread_create failure");
+    else
+        log(CLIENT, "broadcast thread created successfully");
+
+    process_servers(&q);
+    pthread_rwlock_destroy(&(q.rwlock));
+    return 0;
 }
 
 int main(int argc, char *argv[]) {

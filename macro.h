@@ -17,9 +17,11 @@
 #   define log(cli, f_str, args...) \
         fprintf(stdout, "[ %9s ] " f_str "\n", print_cli(cli), ##args)
 #   define err(cli, f_str, args...) \
-        fprintf(stderr, "[ %9s ] " f_str "\n", print_cli(cli), ##args)
+        fprintf(stderr, "[ %9s ] " f_str " at line %d\n", print_cli(cli), ##args, __LINE__)
 #   define err_n(cli, f_str, args...) \
-        err(cli, f_str ": %s", strerror(errno), ##args) /* \n don't needed */
+        err(cli, f_str " : %s", strerror(errno), ##args) /* \n don't needed */
+#   define check_rwlock(cli, rc, fname) \
+        rc == 0 ? err(cli, fname " failure") : 0;
 
 #else /* DEBUG is undefined */
 #   define log(...)

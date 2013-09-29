@@ -29,7 +29,9 @@ static const char *message = "Bakit zadrot!";
 
 struct sockets_queue {
     int sockets[MAX_CONN];
+    in_addr_t addrs[MAX_CONN];
     int count;
+    pthread_rwlock_t rwlock;
 };
 
 typedef int (*socket_callback)(int sender_sock, 
