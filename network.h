@@ -19,10 +19,17 @@
 #include "config.h"
 #include "macro.h"
 
+#define MAX_CONN 128
+
 static const size_t BUF_MAX_LEN = 1024;
-static const int MAX_CONNECTIONS = 128;
+static const int MAX_CONNECTIONS = MAX_CONN;
 static const int RETRY_TIMEOUT = 5;
 static const char *IDENT_MSG = "Dzhumagulov_Berezhnoy_IU_7_2013";
+
+struct sockets_queue {
+    int sockets[MAX_CONN];
+    int count;
+};
 
 typedef int (*socket_callback)(int sender_sock, 
         const char *recieved_data, ssize_t data_len); 
