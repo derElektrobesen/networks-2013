@@ -1,8 +1,6 @@
 #ifndef MACRO_H
 #define MACRO_H
 
-#include "config.h"
-
 /* For logging */
 #define SERVER      0
 #define CLIENT      1

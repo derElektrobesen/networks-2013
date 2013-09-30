@@ -1,16 +1,35 @@
-CC=gcc
+CC = gcc
 
-CFLAGS=-Wall
-FLAGS=-pthread -lpthread -D_MULTI_THREADED
+CFLAGS = -Wall
+FLAGS = -pthread -lpthread -D_MULTI_THREADED
 
-SRV=SRV
-CLI=CLI
+SRV = SRV
+CLI = CLI
 
-SRV_RES=srv
-CLI_RES=cli
+SRV_TAR = srv
+CLI_TAR = cli
 
-SRC=network.c
+DEFINES = DEBUG, \
+		  PORT=7777, \
+		  RETRY_TIMEOUT=3, 
 
-all: 
-	$(CC) $(SRC) -D$(SRV) $(FLAGS) $(CFLAGS) -o $(SRV_RES)
-	$(CC) $(SRC) -D$(CLI) $(FLAGS) $(CFLAGS) -o $(CLI_RES)
+DEFS = $(DEFINES:%,=-D%)
+
+SRCS = network.c proto.c
+OBJS = $(SRCS:%.c=%.o)
+
+PARAMS = $(FLAGS) $(CFLAGS) $(DEFS)
+
+%.o: %.c
+	$(CC) $(FLAGS) $(CFLAGS) $(DEFS) -c $^
+
+srv: $(OBJS)
+	$(CC) $(PARAMS) -D$(SRV) -c main.c
+	$(CC) $(PARAMS) -D$(SRV) main.o $(OBJS) -o $(SRV_TAR)
+cli: $(OBJS)
+	$(CC) $(PARAMS) -D$(CLI) -c main.c
+	$(CC) $(PARAMS) -D$(CLI) main.o $(OBJS) -o $(CLI_TAR)
+
+all: srv cli
+clean:
+	rm -f $(OBJS) $(SRV_TAR) $(CLI_TAR)
