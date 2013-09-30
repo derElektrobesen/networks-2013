@@ -379,9 +379,12 @@ static void *recieve_servers_messages(void *arg) {
     fd_set set;
     int rc, i;
     int max_sock_fd;
+    socket_callback callback;
+    struct sockets_queue *q;
     void **args = arg;
-    socket_callback callback = (socket_callback)(args[0]);
-    struct sockets_queue *q = (struct sockets_queue *)(args[1]);
+
+    callback = (socket_callback)(args[0]);
+    q = (struct sockets_queue *)(args[1]);
 
     log(CLIENT, "server messages reciever thread created");
 
