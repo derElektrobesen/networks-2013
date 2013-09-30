@@ -7,8 +7,7 @@ static int init_server_err(int sock, int err_no) {
     return -1;
 }
 
-int init_server(struct sockaddr_in *addr, int queue_len, 
-        int proto) {
+static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
     int sock = -1;
     int reuse = 1;
     int err_no;
@@ -42,7 +41,7 @@ int init_server(struct sockaddr_in *addr, int queue_len,
     return sock;
 }
 
-int make_sock_nonblock(int sock) {
+static int make_sock_nonblock(int sock) {
     int e;
     e = fcntl(sock, F_SETFL, O_NONBLOCK);
     if (e < 0) 
@@ -57,7 +56,7 @@ static int init_client_err(int sock, int err_no) {
     return -1;
 }
 
-int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen, int max_try) {
+static int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen, int max_try) {
     int i = 0;
     while (i < max_try) {
         i++;
@@ -72,7 +71,7 @@ int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen, int m
 	return -1;
 }
 
-int create_client(const char *addr) {
+static int create_client(const char *addr) {
     int sock;
     int err_no;
     struct addrinfo hint;
@@ -107,7 +106,7 @@ int create_client(const char *addr) {
     return sock;
 }
 
-int process_sockets(fd_set *set, socket_callback callback, 
+static int process_sockets(fd_set *set, socket_callback callback, 
         int *opened_sockets, int *max_index) {
     int i;
     ssize_t bytes_read;
@@ -141,7 +140,7 @@ int process_sockets(fd_set *set, socket_callback callback,
     return max_sock;
 }
 
-int recieve_messages(int sock, socket_callback callback) {
+static int recieve_messages(int sock, socket_callback callback) {
     int cli_sock = -1;
     int sockets[MAX_CONNECTIONS];
     int sockets_count = 0;
@@ -186,14 +185,14 @@ int recieve_messages(int sock, socket_callback callback) {
     return 0;
 }
 
-inline int check_detected_conn(const char *msg, size_t len) {
+inline static int check_detected_conn(const char *msg, size_t len) {
     return strncmp(msg, IDENT_MSG, len);
 }
-inline int prepare_broadcast_msg(char *msg, int max_len) {
+inline static int prepare_broadcast_msg(char *msg, int max_len) {
     return snprintf(msg, max_len, "%s", IDENT_MSG); 
 }
 
-int wait_connection(struct sockaddr_in *addr, int srv_sock) {
+static int wait_connection(struct sockaddr_in *addr, int srv_sock) {
     char buf[BUF_MAX_LEN];
     int flag = 0;
     socklen_t addr_len = sizeof *addr;
@@ -209,7 +208,7 @@ int wait_connection(struct sockaddr_in *addr, int srv_sock) {
     return 0;
 }
 
-void *broadcast_start(void *arg) {
+static void *broadcast_start(void *arg) {
     int sock;
     struct sockaddr_in brc_addr;
     int brc_perms;
@@ -244,7 +243,7 @@ void *broadcast_start(void *arg) {
     return NULL;
 }
 
-inline int broadcast(pthread_t *thread) {
+inline static int broadcast(pthread_t *thread) {
     int err = 0;
 
     err = pthread_create(thread, NULL, &broadcast_start, NULL);
@@ -273,14 +272,7 @@ int create_server(socket_callback callback) {
     return 0;
 }
 
-int process_message(int sender_sock, const char *msg, ssize_t count) {
-    char *message = "Message recieved!\n";
-    log(CLIENT, "message recieved from socket %d: %s", sender_sock, msg);
-    send(sender_sock, message, strlen(message), 0);
-    return 0;
-}
-
-int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
+static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     char srv_ch_addr[INET_ADDRSTRLEN];
     int s, rc, r = 0;
 
@@ -303,7 +295,7 @@ int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     return r;
 }
 
-void *wait_servers(void *arg) {
+static void *wait_servers(void *arg) {
     struct sockaddr_in srv_addr;
     struct sockaddr_in sock_addr;
     struct sockets_queue *q = (struct sockets_queue *)arg;
@@ -344,13 +336,7 @@ void *wait_servers(void *arg) {
     return NULL;
 }
 
-int process_srv_message(int sock, const char *msg, ssize_t len) {
-    /* TODO: make server messages processing */
-    log(CLIENT, "Recieved from server %d: %s", sock, msg);
-    return 0;
-}
-
-int recv_srv_msg(fd_set *set, struct sockets_queue *q) {
+static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback callback) {
     ssize_t bytes_read;
     char msg[BUF_MAX_LEN];
     int i, offset;
@@ -377,7 +363,8 @@ int recv_srv_msg(fd_set *set, struct sockets_queue *q) {
                 if (msg[bytes_read - 1] == '\n')
                     bytes_read--;
                 msg[bytes_read] = 0;
-                process_srv_message(q->sockets[i], msg, bytes_read);
+                if (callback)
+                    callback(q->sockets[i], msg, bytes_read);
             }
         }
     }
@@ -388,11 +375,13 @@ int recv_srv_msg(fd_set *set, struct sockets_queue *q) {
     return 0;
 }
 
-void *recieve_servers_messages(void *arg) {
+static void *recieve_servers_messages(void *arg) {
     fd_set set;
     int rc, i;
     int max_sock_fd;
-    struct sockets_queue *q = (struct sockets_queue *)arg;
+    void **args = arg;
+    socket_callback callback = (socket_callback)(args[0]);
+    struct sockets_queue *q = (struct sockets_queue *)(args[1]);
 
     log(CLIENT, "server messages reciever thread created");
 
@@ -416,11 +405,42 @@ void *recieve_servers_messages(void *arg) {
             rc = pthread_rwlock_unlock(&(q->rwlock));
             check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
             if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0) {
-                recv_srv_msg(&set, q);
+                recv_srv_msg(&set, q, callback);
             }
         }
     }
     return NULL;
+}
+
+int start_server(socket_callback process_cli_msg_callback) {
+    pthread_t brc_thread;
+    int r = 0;
+    r = broadcast(&brc_thread);
+    if (r == 0)
+        r = create_server(process_cli_msg_callback);
+    return r;
+}
+
+int start_client(socket_callback process_srv_msg_callback, server_answ_callback srv_answ) {
+    pthread_t brc_thread, srv_thread;
+    struct sockets_queue q = { .rwlock = PTHREAD_RWLOCK_INITIALIZER };
+    int err;
+    void *args[] = { process_srv_msg_callback, &q };
+
+    err = pthread_create(&brc_thread, NULL, &wait_servers, &q);
+    if (err != 0)
+        err_n(CLIENT, "pthread_create failure");
+
+    err = pthread_create(&srv_thread, NULL, &recieve_servers_messages, args);
+    if (err != 0)
+        err_n(CLIENT, "pthread_create failure");
+
+    if (srv_answ)
+        srv_answ(&q);
+    else
+        err(CLIENT, "server answers can't be processed");
+    pthread_rwlock_destroy(&(q.rwlock));
+    return 0;
 }
 
 int process_servers(struct sockets_queue *q) {
@@ -445,39 +465,25 @@ int process_servers(struct sockets_queue *q) {
     return 0;
 }
 
-int start_server() {
-    pthread_t brc_thread;
-    int r = 0;
-    r = broadcast(&brc_thread);
-    if (r == 0)
-        r = create_server(process_message);
-    return r;
+int process_srv_message(int sock, const char *msg, ssize_t len) {
+    /* TODO: make server messages processing */
+    log(CLIENT, "Recieved from server %d: %s", sock, msg);
+    return 0;
 }
 
-int start_client() {
-    pthread_t brc_thread, srv_thread;
-    struct sockets_queue q = { .rwlock = PTHREAD_RWLOCK_INITIALIZER };
-    int err;
-
-    err = pthread_create(&brc_thread, NULL, &wait_servers, &q);
-    if (err != 0)
-        err_n(CLIENT, "pthread_create failure");
-
-    err = pthread_create(&srv_thread, NULL, &recieve_servers_messages, &q);
-    if (err != 0)
-        err_n(CLIENT, "pthread_create failure");
-
-    process_servers(&q);
-    pthread_rwlock_destroy(&(q.rwlock));
+int process_message(int sender_sock, const char *msg, ssize_t count) {
+    char *message = "Message recieved!\n";
+    log(CLIENT, "message recieved from socket %d: %s", sender_sock, msg);
+    send(sender_sock, message, strlen(message), 0);
     return 0;
 }
 
 int main(int argc, char *argv[]) {
     int result = 0;
 #ifdef SRV
-    result = start_server();
+    result = start_server(&process_message);
 #elif defined CLI
-    result = start_client();
+    result = start_client(&process_srv_message, &process_servers);
 #else
     err(-1, "Compile define option is required");
     result = 1;

@@ -36,5 +36,6 @@ struct sockets_queue {
 
 typedef int (*socket_callback)(int sender_sock, 
         const char *recieved_data, ssize_t data_len); 
+typedef int (*server_answ_callback)(struct sockets_queue *queue);
 
 #endif
