@@ -255,7 +255,7 @@ inline static int broadcast(pthread_t *thread) {
     return err;
 }
 
-int create_server(socket_callback callback) {
+static int create_server(socket_callback callback) {
     int srv_sock = -1;
     struct sockaddr_in addr;
 
