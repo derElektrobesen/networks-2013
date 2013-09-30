@@ -1,5 +1,6 @@
 #include "network.h"
 
+#ifdef CLI
 static const char *message = "Bakit zadrot!";
 
 int process_servers(struct sockets_queue *q) {
@@ -29,13 +30,16 @@ int process_srv_message(int sock, const char *msg, ssize_t len) {
     log(CLIENT, "Recieved from server %d: %s", sock, msg);
     return 0;
 }
+#endif
 
+#ifdef SRV
 int process_message(int sender_sock, const char *msg, ssize_t count) {
     char *message = "Message recieved!\n";
     log(CLIENT, "message recieved from socket %d: %s", sender_sock, msg);
     send(sender_sock, message, strlen(message), 0);
     return 0;
 }
+#endif
 
 int main(int argc, char *argv[]) {
     int result = 0;
