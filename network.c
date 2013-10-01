@@ -56,11 +56,12 @@ static int init_client_err(int sock, int err_no) {
     return -1;
 }
 
+
 static int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen, int max_try) {
     int i = 0;
     while (i < max_try) {
         i++;
-        log(CLIENT, "trying to connect...");
+        log(CLIENT, "connecting...");
 		if (connect(sockfd, addr, alen) == 0) {
             log(CLIENT, "connection successfull.");
 			return 0;
@@ -208,13 +209,41 @@ static int wait_connection(struct sockaddr_in *addr, int srv_sock) {
     return 0;
 }
 
+static char* get_hostIP(struct sockaddr_in *addr) { // В параметре вернется информация об адресе хоста,
+    struct ifaddrs *ifap, *ifa;                     // так что можно просто сравнить IP и отбросить, если они равны (antiloopback)
+    char *ip_addr;    
+    
+    if (getifaddrs (&ifap) == 0) {
+        for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+            if (ifa->ifa_addr->sa_family == AF_INET) {
+                addr = (struct sockaddr_in *) ifa->ifa_addr;
+                addr->sin_addr.s_addr |= 0xFF000000;        // Transforming to broadcast address
+                ip_addr = inet_ntoa(addr->sin_addr);      
+                if (strcmp("wlan0", ifa->ifa_name) == 0)    // Only wlan interface     loopback = 127.0.0.1         
+                    printf("[ Broadcast ]: Broadcast IP: %s\n", ip_addr);
+            }
+        }
+    } else return NULL;
+    return ip_addr; // Возвращает IP(нормальный) широковещания локальной сети
+
+}
+
+
 static void *broadcast_start(void *arg) {
+    
+    
     int sock;
     struct sockaddr_in brc_addr;
+    struct sockaddr_in host_addr;    
     int brc_perms;
     int msg_len;
-    char *brc_ip = "255.255.255.255";
     char msg[BUF_MAX_LEN];
+    char *brc_ip;// "255.255.255.255";
+     
+    if ((brc_ip = get_hostIP(&host_addr)) == NULL)  {
+        err_n(BROADCAST, "get_hostIP failure");
+        return NULL;
+    }
 
     if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
         err_n(BROADCAST, "socket failure");

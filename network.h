@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <ifaddrs.h>
 
 #include "macro.h"
 
