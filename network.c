@@ -193,57 +193,136 @@ inline static int prepare_broadcast_msg(char *msg, int max_len) {
     return snprintf(msg, max_len, "%s", IDENT_MSG); 
 }
 
-static int wait_connection(struct sockaddr_in *addr, int srv_sock) {
+static int wait_connection(struct sockaddr_in *addr, int srv_sock, 
+        uint32_t *ignore_ips, int ips_count) {
     char buf[BUF_MAX_LEN];
     int flag = 0;
+    int i;
     socklen_t addr_len = sizeof *addr;
 
     log(CLIENT, "waiting connection");
     while (!flag) {
         if (recvfrom(srv_sock, buf, BUF_MAX_LEN, 0, (struct sockaddr *)addr, &addr_len) > 0) {
-            log(BROADCAST, "detected connection with message: %s", buf);
-            if (check_detected_conn(buf, BUF_MAX_LEN) == 0) 
-                flag = 1;
+            for (i = 0; !flag && i < ips_count; i++)
+                if (ignore_ips[i] == addr->sin_addr.s_addr)
+                    flag = 1;
+            if (flag) {
+                flag = 0;
+            } else {
+                log(BROADCAST, "detected connection with message: %s", buf);
+                if (check_detected_conn(buf, BUF_MAX_LEN) == 0) 
+                    flag = 1;
+            }
         }
     }
     return 0;
 }
 
-static char* get_hostIP(struct sockaddr_in *addr) { // В параметре вернется информация об адресе хоста,
-    struct ifaddrs *ifap, *ifa;                     // так что можно просто сравнить IP и отбросить, если они равны (antiloopback)
-    char *ip_addr;    
-    
-    if (getifaddrs (&ifap) == 0) {
+#ifndef USE_LOOPBACK
+static int get_hostIPs(uint32_t ips[MAX_INTERFACES_COUNT], int use_loopback) {
+    struct ifaddrs *ifap, *ifa;
+    struct sockaddr_in *addr;
+    int i = 0, j;
+
+    if (getifaddrs(&ifap) == 0) {
         for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-            if (ifa->ifa_addr->sa_family == AF_INET) {
+            if ((ifa->ifa_addr->sa_family == AF_INET) && 
+                    !(use_loopback && (ifa->ifa_flags & IFF_LOOPBACK))) {
                 addr = (struct sockaddr_in *) ifa->ifa_addr;
-                addr->sin_addr.s_addr |= 0xFF000000;        // Transforming to broadcast address
-                ip_addr = inet_ntoa(addr->sin_addr);      
-                if (strcmp("wlan0", ifa->ifa_name) == 0)    // Only wlan interface     loopback = 127.0.0.1         
-                    printf("[ Broadcast ]: Broadcast IP: %s\n", ip_addr);
+                for (j = 0; j != -1 && j < i; j++)
+                    if (ips[j] == addr->sin_addr.s_addr)
+                        j = -1;
+                if (j >= 0) {
+                    if (i >= MAX_INTERFACES_COUNT) {
+                        ifa = NULL;
+                        err(BROADCAST, "too many network interfaces found");
+                    } else
+                        ips[i++] = addr->sin_addr.s_addr;
+                }
             }
         }
-    } else return NULL;
-    return ip_addr; // Возвращает IP(нормальный) широковещания локальной сети
-
+    }
+    return i;
 }
 
+static int get_hostIP(char ips[4 * sizeof("000")][MAX_INTERFACES_COUNT]) { 
+    char ip_addr[4 * sizeof("000")];
+    uint32_t ips_i[MAX_INTERFACES_COUNT];
+    unsigned char *addr_ref;
+    int count;
+    int i;
+
+    count = get_hostIPs(ips_i, 1);
+    for (i = 0; i < count; i++) {
+        addr_ref = (unsigned char *)&(ips_i[i]);
+        sprintf(ip_addr, "%d.%d.%d.%d",
+                addr_ref[0] & 0xff, addr_ref[1] & 0xff,
+                addr_ref[2] & 0xff, 0xff);
+        strcpy(ips[i], ip_addr);
+        log(BROADCAST, "broadcast ip: %s", ip_addr);
+    }
+    return count;
+}
 
 static void *broadcast_start(void *arg) {
-    
-    
     int sock;
-    struct sockaddr_in brc_addr;
-    struct sockaddr_in host_addr;    
     int brc_perms;
     int msg_len;
     char msg[BUF_MAX_LEN];
-    char *brc_ip;// "255.255.255.255";
-     
-    if ((brc_ip = get_hostIP(&host_addr)) == NULL)  {
-        err_n(BROADCAST, "get_hostIP failure");
+    struct sockaddr_in brc_addrs[MAX_INTERFACES_COUNT];
+    char brc_ips[4 * sizeof("000")][MAX_INTERFACES_COUNT];
+    int socks[MAX_INTERFACES_COUNT];
+    char *brc_ip;
+    int ips_count;
+    int i;
+
+    if ((ips_count = get_hostIP(brc_ips)) == 0)  {
+        err(BROADCAST, "get_hostIP failure");
         return NULL;
     }
+    for (i = 0; i < ips_count; i++) {
+        brc_ip = brc_ips[i];
+        if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+            err_n(BROADCAST, "socket failure");
+            return NULL;
+        }
+
+        brc_perms = 1;
+        if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *)&brc_perms, sizeof(brc_perms)) < 0) {
+            err_n(BROADCAST, "setsockopt failure");
+            return NULL;
+        }
+
+        memset(&(brc_addrs[i]), 0, sizeof(brc_addrs[i]));
+        brc_addrs[i].sin_family = AF_INET;
+        brc_addrs[i].sin_addr.s_addr = inet_addr(brc_ip);
+        brc_addrs[i].sin_port = htons(PORT);
+        socks[i] = sock;
+    }
+
+    msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);
+
+    while (1) {
+        for (i = 0; i < ips_count; i++) {
+            log(BROADCAST, "sending broadcast message to address %s", brc_ips[i]);
+            if (sendto(socks[i], msg, msg_len, 0, 
+                        (struct sockaddr *)&(brc_addrs[i]), sizeof(brc_addrs[i])) != msg_len)
+                err_n(BROADCAST, "sendto failure");
+        }
+        sleep(RETRY_TIMEOUT);
+    }
+    return NULL;
+}
+
+#else /* USE_LOOPBACK defined */
+
+static void *broadcast_start(void *arg) {
+    int sock;
+    int brc_perms;
+    int msg_len;
+    char msg[BUF_MAX_LEN];
+    struct sockaddr_in brc_addr;
+    char *brc_ip = "255.255.255.255";
 
     if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
         err_n(BROADCAST, "socket failure");
@@ -255,13 +334,12 @@ static void *broadcast_start(void *arg) {
         err_n(BROADCAST, "setsockopt failure");
         return NULL;
     }
-
-    msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);
-
     memset(&brc_addr, 0, sizeof(brc_addr));
     brc_addr.sin_family = AF_INET;
     brc_addr.sin_addr.s_addr = inet_addr(brc_ip);
     brc_addr.sin_port = htons(PORT);
+
+    msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);
 
     while (1) {
         log(BROADCAST, "sending broadcast message");
@@ -271,6 +349,7 @@ static void *broadcast_start(void *arg) {
     }
     return NULL;
 }
+#endif /* USE_LOOPBACK */
 
 inline static int broadcast(pthread_t *thread) {
     int err = 0;
@@ -331,6 +410,12 @@ static void *wait_servers(void *arg) {
     int i, flag;
     int srv_sock;
     int rc;
+    uint32_t local_ips[MAX_INTERFACES_COUNT];
+    int ips_count = 0;
+
+#ifndef USE_LOOPBACK
+    ips_count = get_hostIPs(local_ips, 0);
+#endif
 
     log(CLIENT, "client broadcast thread created");
 
@@ -343,12 +428,20 @@ static void *wait_servers(void *arg) {
         return NULL;
 
     while (1) {
-        wait_connection(&srv_addr, srv_sock);
+        wait_connection(&srv_addr, srv_sock, local_ips, ips_count);
 
         rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
 
-        for (i = 0, flag = 0; !flag && i < q->count; i++) {
+        flag = 0;
+
+#ifndef USE_LOOPBACK
+        for (i = 0; !flag && i < ips_count; i++) {
+            if (srv_addr.sin_addr.s_addr == local_ips[i])
+                flag = 2;
+        }
+#endif
+        for (i = 0; !flag && i < q->count; i++) {
             if (srv_addr.sin_addr.s_addr == q->addrs[i])
                 flag = 1;
         }
@@ -358,7 +451,7 @@ static void *wait_servers(void *arg) {
 
         if (flag == 0)
             accept_conn(q, &srv_addr);
-        else
+        else if (flag == 1)
             log(BROADCAST, "connection is already established: pass");
     }
     close(srv_sock);

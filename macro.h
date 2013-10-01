@@ -2,6 +2,7 @@
 #define MACRO_H
 
 /* For logging */
+#define OTHER      -1
 #define SERVER      0
 #define CLIENT      1
 #define BROADCAST   2
