@@ -219,7 +219,7 @@ static int wait_connection(struct sockaddr_in *addr, int srv_sock,
 }
 
 #ifndef USE_LOOPBACK
-static int get_hostIPs(uint32_t ips[MAX_INTERFACES_COUNT], int use_loopback) {
+static int get_hostIPs(uint32_t *ips, int max_count, int use_loopback) {
     struct ifaddrs *ifap, *ifa;
     struct sockaddr_in *addr;
     int i = 0, j;
@@ -233,7 +233,7 @@ static int get_hostIPs(uint32_t ips[MAX_INTERFACES_COUNT], int use_loopback) {
                     if (ips[j] == addr->sin_addr.s_addr)
                         j = -1;
                 if (j >= 0) {
-                    if (i >= MAX_INTERFACES_COUNT) {
+                    if (i >= max_count) {
                         ifa = NULL;
                         err(BROADCAST, "too many network interfaces found");
                     } else
@@ -245,14 +245,14 @@ static int get_hostIPs(uint32_t ips[MAX_INTERFACES_COUNT], int use_loopback) {
     return i;
 }
 
-static int get_hostIP(char ips[4 * sizeof("000")][MAX_INTERFACES_COUNT]) { 
+static int get_hostIP(char (*ips)[4 * sizeof("000")], int max_count) {
     char ip_addr[4 * sizeof("000")];
     uint32_t ips_i[MAX_INTERFACES_COUNT];
     unsigned char *addr_ref;
     int count;
     int i;
 
-    count = get_hostIPs(ips_i, 1);
+    count = get_hostIPs(ips_i, max_count, 1);
     for (i = 0; i < count; i++) {
         addr_ref = (unsigned char *)&(ips_i[i]);
         sprintf(ip_addr, "%d.%d.%d.%d",
@@ -276,7 +276,7 @@ static void *broadcast_start(void *arg) {
     int ips_count;
     int i;
 
-    if ((ips_count = get_hostIP(brc_ips)) == 0)  {
+    if ((ips_count = get_hostIP(brc_ips, MAX_INTERFACES_COUNT)) == 0)  {
         err(BROADCAST, "get_hostIP failure");
         return NULL;
     }
@@ -414,7 +414,7 @@ static void *wait_servers(void *arg) {
     int ips_count = 0;
 
 #ifndef USE_LOOPBACK
-    ips_count = get_hostIPs(local_ips, 0);
+    ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
 #endif
 
     log(CLIENT, "client broadcast thread created");
