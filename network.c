@@ -56,7 +56,6 @@ static int init_client_err(int sock, int err_no) {
     return -1;
 }
 
-
 static int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen, int max_try) {
     int i = 0;
     while (i < max_try) {
@@ -67,7 +66,7 @@ static int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen
 			return 0;
         }
         log(CLIENT, "connection failure.");
-        sleep(RETRY_TIMEOUT);
+        sleep(SHORT_TIMEOUT);
 	}
 	return -1;
 }
@@ -252,6 +251,9 @@ static int get_hostIP(char (*ips)[4 * sizeof("000")], int max_count) {
     int count;
     int i;
 
+    if (max_count > MAX_INTERFACES_COUNT)
+        max_count = MAX_INTERFACES_COUNT;
+
     count = get_hostIPs(ips_i, max_count, 1);
     for (i = 0; i < count; i++) {
         addr_ref = (unsigned char *)&(ips_i[i]);
@@ -274,12 +276,18 @@ static void *broadcast_start(void *arg) {
     int socks[MAX_INTERFACES_COUNT];
     char *brc_ip;
     int ips_count;
-    int i;
+    uint32_t ips_i[MAX_INTERFACES_COUNT];
+    int ips_i_count;
+    int i, j = 0;
 
-    if ((ips_count = get_hostIP(brc_ips, MAX_INTERFACES_COUNT)) == 0)  {
-        err(BROADCAST, "get_hostIP failure");
-        return NULL;
-    }
+    do {
+        ips_count = get_hostIP(brc_ips, MAX_INTERFACES_COUNT);
+        if (ips_count == 0) {
+            err(BROADCAST, "get_hostIP failure");
+            sleep(LONG_TIMEOUT);
+        }
+    } while (ips_count == 0);
+
     for (i = 0; i < ips_count; i++) {
         brc_ip = brc_ips[i];
         if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -303,13 +311,28 @@ static void *broadcast_start(void *arg) {
     msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);
 
     while (1) {
+        if (j++ % (LONG_TIMEOUT / SHORT_TIMEOUT) == 0) {
+            ips_i_count = get_hostIPs(ips_i, MAX_INTERFACES_COUNT, 1);
+            if (ips_i_count != ips_count)
+                j = -1;
+            else
+                j = 1;
+        }
         for (i = 0; i < ips_count; i++) {
             log(BROADCAST, "sending broadcast message to address %s", brc_ips[i]);
             if (sendto(socks[i], msg, msg_len, 0, 
-                        (struct sockaddr *)&(brc_addrs[i]), sizeof(brc_addrs[i])) != msg_len)
+                    (struct sockaddr *)&(brc_addrs[i]), sizeof(brc_addrs[i])) != msg_len) {
                 err_n(BROADCAST, "sendto failure");
+                j = -1;
+            }
         }
-        sleep(RETRY_TIMEOUT);
+        if (j == -1) {
+            /* Restart broadcast on error or if new interfaces found */
+            for (i = 0; i < ips_count; i++)
+                close(socks[i]);
+            return broadcast_start(arg);
+        }
+        sleep(SHORT_TIMEOUT);
     }
     return NULL;
 }
@@ -345,7 +368,7 @@ static void *broadcast_start(void *arg) {
         log(BROADCAST, "sending broadcast message");
         if (sendto(sock, msg, msg_len, 0, (struct sockaddr *)&brc_addr, sizeof(brc_addr)) != msg_len)
             err_n(BROADCAST, "sendto failure");
-        sleep(RETRY_TIMEOUT);
+        sleep(SHORT_TIMEOUT);
     }
     return NULL;
 }
@@ -525,7 +548,7 @@ static void *recieve_servers_messages(void *arg) {
         if (q->count == 0) {
             rc = pthread_rwlock_unlock(&(q->rwlock));
             check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
-            sleep(RETRY_TIMEOUT);
+            sleep(SHORT_TIMEOUT);
         } else {
             rc = pthread_rwlock_unlock(&(q->rwlock));
             check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");

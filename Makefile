@@ -11,7 +11,8 @@ CLI_TAR = cli
 
 DEFINES =   DEBUG \
             PORT=7777 \
-            RETRY_TIMEOUT=3 \
+            SHORT_TIMEOUT=2 \
+            LONG_TIMEOUT=10 \
             USE_LOOPBACK
 
 DEFS = $(DEFINES:%=-D%)

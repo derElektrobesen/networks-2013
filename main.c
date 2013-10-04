@@ -19,7 +19,7 @@ int process_servers(struct sockets_queue *q) {
         rc = pthread_rwlock_unlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
 
-        sleep(RETRY_TIMEOUT);
+        sleep(SHORT_TIMEOUT);
     }
 
     return 0;
