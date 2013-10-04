@@ -447,22 +447,19 @@ static void *wait_servers(void *arg) {
         return NULL;
 
     while (1) {
+        flag = 0;
         wait_connection(&srv_addr, srv_sock, local_ips, ips_count);
 
 #ifndef USE_LOOPBACK
         ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
-#endif
-        rc = pthread_rwlock_rdlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
-
-        flag = 0;
-
-#ifndef USE_LOOPBACK
         for (i = 0; !flag && i < ips_count; i++) {
             if (srv_addr.sin_addr.s_addr == local_ips[i])
                 flag = 2;
         }
 #endif
+        rc = pthread_rwlock_rdlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
+
         for (i = 0; !flag && i < q->count; i++) {
             if (srv_addr.sin_addr.s_addr == q->addrs[i])
                 flag = 1;
