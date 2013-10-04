@@ -436,10 +436,6 @@ static void *wait_servers(void *arg) {
     uint32_t local_ips[MAX_INTERFACES_COUNT];
     int ips_count = 0;
 
-#ifndef USE_LOOPBACK
-    ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
-#endif
-
     log(CLIENT, "client broadcast thread created");
 
     sock_addr.sin_family = AF_INET;
@@ -453,6 +449,9 @@ static void *wait_servers(void *arg) {
     while (1) {
         wait_connection(&srv_addr, srv_sock, local_ips, ips_count);
 
+#ifndef USE_LOOPBACK
+        ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
+#endif
         rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
 
