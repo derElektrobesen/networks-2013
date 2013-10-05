@@ -456,6 +456,7 @@ static void *wait_servers(void *arg) {
             if (srv_addr.sin_addr.s_addr == local_ips[i])
                 flag = 2;
         }
+        if (!flag) {
 #endif
         rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
@@ -467,6 +468,10 @@ static void *wait_servers(void *arg) {
 
         rc = pthread_rwlock_unlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+
+#ifndef USE_LOOPBACK
+        }
+#endif
 
         if (flag == 0)
             accept_conn(q, &srv_addr);
