@@ -8,6 +8,7 @@
 struct proto_fields {
     int pack_num;
     int action_type;
+    int msg_len;/* ? */
     union {
         struct {
             int piece_num;
