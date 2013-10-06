@@ -3,7 +3,6 @@
 #ifdef CLI
 static const char *message = "Bakit zadrot!";
 
-
 /* Функция рассылающая сообщения серверам в локальной сети*/                // ??????????? 
 int process_servers(struct sockets_queue *q) {  // Процессы серверы
     int rc, i;
@@ -27,10 +26,11 @@ int process_servers(struct sockets_queue *q) {  // Процессы сервер
     return 0;
 }
 
-/* Callback-функция которая вызывается при получении сообщения клиентом. 
+/*
+ * Callback-функция которая вызывается при получении сообщения клиентом. 
  * Обрабатывает сообщение полученное от сервера.
-*/
-int process_srv_message(int sock, const char *msg, ssize_t len) {           // ???????????
+ */
+int process_srv_message(int sock, const char *msg, ssize_t len) {
     /* TODO: make server messages processing */
     log(CLIENT, "Recieved from server %d: %s", sock, msg);
     return 0;
@@ -38,9 +38,10 @@ int process_srv_message(int sock, const char *msg, ssize_t len) {           // ?
 #endif
 
 #ifdef SRV
-/* Callback-функция которая вызывается при получении сообщения сервером.
+/*
+ *Callback-функция которая вызывается при получении сообщения сервером.
  * Обрабатывает сообщение полученное от клиента
-*/
+ */
 int process_message(int sender_sock, const char *msg, ssize_t count) {  
     char *message = "Message recieved!\n";
     log(CLIENT, "message recieved from socket %d: %s", sender_sock, msg);

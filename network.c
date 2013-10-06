@@ -146,7 +146,7 @@ static int process_sockets(fd_set *set, socket_callback callback,
             max_sock = *(opened_sockets + i);
         if (FD_ISSET(*(opened_sockets + i), set)) {
             bytes_read = recv(*(opened_sockets + i), buf, BUF_MAX_LEN, 0);
-            if (bytes_read == ECONNRESET) {
+            if (bytes_read <= 0) {
                 log(CLIENT, "connection closed: %d", *(opened_sockets + i));
                 close(*(opened_sockets + i));
                 (*max_index)--;
@@ -541,7 +541,6 @@ static void *wait_servers(void *arg) {
 #ifndef USE_LOOPBACK
         }
 #endif
-
         if (flag == 0)
             accept_conn(q, &srv_addr);
         else if (flag == 1)
@@ -569,7 +568,7 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
         }
         if (FD_ISSET(q->sockets[i], set)) {
             bytes_read = recv(q->sockets[i], msg, BUF_MAX_LEN, 0);
-            if (bytes_read == ECONNRESET) {
+            if (bytes_read <= 0) {
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;
                 i--;
@@ -673,7 +672,7 @@ int start_client(socket_callback process_srv_msg_callback, server_answ_callback 
     if (err != 0)
         err_n(CLIENT, "pthread_create failure");
 
-    if (srv_answ)   /* Обработка ответа сервера*/
+    if (srv_answ)   /* Обработка ответа сервера */
         srv_answ(&q);
     else
         err(CLIENT, "server answers can't be processed");
