@@ -23,7 +23,6 @@
 /* Constants */
 #define MAX_CONNECTIONS         128
 #define SELECT_QUEUE_LEN        5
-#define BUF_MAX_LEN             1024
 #define MAX_INTERFACES_COUNT    16
 #define IDENT_MSG               "Dzhumagulov_Berezhnoy_IU_7_2013"
 

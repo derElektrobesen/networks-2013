@@ -1,4 +1,9 @@
 #include "network.h"
+#ifdef CLI
+#   include "cli.h"
+#elif defined SRV
+#   include "srv.h"
+#endif
 
 #ifdef CLI
 static const char *message = "Bakit zadrot!";
@@ -56,6 +61,7 @@ int main(int argc, char *argv[]) {
 #ifdef SRV
     result = start_server(&process_message);
 #elif defined CLI
+    set_client_alarm();
     result = start_client(&process_srv_message, &process_servers);
 #else
     err(-1, "Compile define option is required");

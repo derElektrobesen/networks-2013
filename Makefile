@@ -14,9 +14,12 @@ DEFINES =   DEBUG \
             SHORT_TIMEOUT=2 \
             LONG_TIMEOUT=10 \
             TIMEOUT_DELAY=1 \
+            BUF_MAX_LEN=1024 \
             MAX_PIECES_COUNT=10000 \
-            USE_LOOPBACK
+            USE_LOOPBACK \
+            DONT_DO_SRAND
 
+# Unused macro defs
 # PRINT_LINES
 
 DEFS = $(DEFINES:%=-D%)
