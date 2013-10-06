@@ -3,18 +3,18 @@
 #ifdef CLI
 static const char *message = "Bakit zadrot!";
 
-/* Функция рассылающая сообщения серверам в локальной сети*/                // ??????????? 
-int process_servers(struct sockets_queue *q) {  // Процессы серверы
+/* Функция рассылающая сообщения серверам в локальной сети */
+int process_servers(struct sockets_queue *q) {
     int rc, i;
 
     /* TODO: Remove dummy actions */
 
     while (1) {
-        rc = pthread_rwlock_rdlock(&(q->rwlock));               // Блокировка на чтение (совместное использование)
+        rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
                 
-        for (i = 0; i < q->count; i++) {                        // Посылка сообщения всем клиентам
-            send(q->sockets[i], message, strlen(message), 0);   // Проверка посылки ? 
+        for (i = 0; i < q->count; i++) {
+            send(q->sockets[i], message, strlen(message), 0);
         }
 
         rc = pthread_rwlock_unlock(&(q->rwlock));
@@ -38,8 +38,9 @@ int process_srv_message(int sock, const char *msg, ssize_t len) {
 #endif
 
 #ifdef SRV
+
 /*
- *Callback-функция которая вызывается при получении сообщения сервером.
+ * Callback-функция которая вызывается при получении сообщения сервером.
  * Обрабатывает сообщение полученное от клиента
  */
 int process_message(int sender_sock, const char *msg, ssize_t count) {  

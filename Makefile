@@ -22,10 +22,10 @@ DEFS = $(DEFINES:%=-D%)
 GLOBAL_SRCS = network.c proto.c
 GLOBAL_OBJS = $(GLOBAL_SRCS:%.c=%.o)
 
-SRV_SRCS =
+SRV_SRCS = srv.c
 SRV_OBJS = $(SRV_SRCS:%.s=%.o)
 
-CLI_SRCS =
+CLI_SRCS = cli.c
 CLI_OBJS = $(CLI_SRCS:%.c=%.o)
 
 PARAMS = $(FLAGS) $(CFLAGS) $(DEFS)
