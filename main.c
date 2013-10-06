@@ -3,17 +3,19 @@
 #ifdef CLI
 static const char *message = "Bakit zadrot!";
 
-int process_servers(struct sockets_queue *q) {
+
+/* Функция рассылающая сообщения серверам в локальной сети*/                // ??????????? 
+int process_servers(struct sockets_queue *q) {  // Процессы серверы
     int rc, i;
 
     /* TODO: Remove dummy actions */
 
     while (1) {
-        rc = pthread_rwlock_rdlock(&(q->rwlock));
+        rc = pthread_rwlock_rdlock(&(q->rwlock));               // Блокировка на чтение (совместное использование)
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
-
-        for (i = 0; i < q->count; i++) {
-            send(q->sockets[i], message, strlen(message), 0);
+                
+        for (i = 0; i < q->count; i++) {                        // Посылка сообщения всем клиентам
+            send(q->sockets[i], message, strlen(message), 0);   // Проверка посылки ? 
         }
 
         rc = pthread_rwlock_unlock(&(q->rwlock));
@@ -25,7 +27,10 @@ int process_servers(struct sockets_queue *q) {
     return 0;
 }
 
-int process_srv_message(int sock, const char *msg, ssize_t len) {
+/* Callback-функция которая вызывается при получении сообщения клиентом. 
+ * Обрабатывает сообщение полученное от сервера.
+*/
+int process_srv_message(int sock, const char *msg, ssize_t len) {           // ???????????
     /* TODO: make server messages processing */
     log(CLIENT, "Recieved from server %d: %s", sock, msg);
     return 0;
@@ -33,7 +38,10 @@ int process_srv_message(int sock, const char *msg, ssize_t len) {
 #endif
 
 #ifdef SRV
-int process_message(int sender_sock, const char *msg, ssize_t count) {
+/* Callback-функция которая вызывается при получении сообщения сервером.
+ * Обрабатывает сообщение полученное от клиента
+*/
+int process_message(int sender_sock, const char *msg, ssize_t count) {  
     char *message = "Message recieved!\n";
     log(CLIENT, "message recieved from socket %d: %s", sender_sock, msg);
     send(sender_sock, message, strlen(message), 0);

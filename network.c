@@ -1,5 +1,8 @@
 #include "network.h"
 
+/* Функция возвращает ошибку, если
+ * инициализация сервера закончилась неудачно.
+ */
 static int init_server_err(int sock, int err_no) {
     if (sock > 0)
         close(sock);
@@ -7,6 +10,11 @@ static int init_server_err(int sock, int err_no) {
     return -1;
 }
 
+/* Функция инициализирует сервер.
+ * Создает сокет, связывает его с адресом и
+ * устанавливает длину очереди для обработки.
+ * Возвращает дескриптор этого сокета.
+ */
 static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
     int sock = -1;
     int reuse = 1;
@@ -41,6 +49,9 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
     return sock;
 }
 
+/* Функция устанавливает режим
+ * неблокирующего ввода\вывода для сокета.
+ */
 static int make_sock_nonblock(int sock) {
     int e;
     e = fcntl(sock, F_SETFL, O_NONBLOCK);
@@ -49,6 +60,9 @@ static int make_sock_nonblock(int sock) {
     return e;
 }
 
+/* Функция возвращает ошибку, если
+ * инициализация клиента закончилась неудачно.
+ */
 static int init_client_err(int sock, int err_no) {
     if (sock)
         close(sock);
@@ -56,6 +70,10 @@ static int init_client_err(int sock, int err_no) {
     return -1;
 }
 
+/* Функция пытается установить соединение 
+ * с сервером по определенному алгоритму.
+ * Используется клиентом.
+ */
 static int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen, int max_try) {
     int i = 0;
     while (i < max_try) {
@@ -71,6 +89,9 @@ static int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen
 	return -1;
 }
 
+/* Функция инициализирует клиента и пытается соединится с сервером.
+ * В случае удачи возвращает дескриптор сокета.
+ */
 static int create_client(const char *addr) {
     int sock;
     int err_no;
@@ -106,6 +127,7 @@ static int create_client(const char *addr) {
     return sock;
 }
 
+/* */
 static int process_sockets(fd_set *set, socket_callback callback, 
         int *opened_sockets, int *max_index) {
     int i;
@@ -140,14 +162,17 @@ static int process_sockets(fd_set *set, socket_callback callback,
     return max_sock;
 }
 
-static int recieve_messages(int sock, socket_callback callback) {
+/* Функция ожидает новые соединения от клиентов.
+ * ?????????????????
+ */
+static int recieve_messages(int sock, socket_callback callback) {   
     int cli_sock = -1;
     int sockets[MAX_CONNECTIONS];
     int sockets_count = 0;
     fd_set set;
     int max_sock_fd = sock;
     int i;
-    char *err_str = "connection refused!\n";
+    char *err_str = "connection refused!\n";    // Нужна ли эта переменная
 
     make_sock_nonblock(sock);
 
@@ -157,7 +182,7 @@ static int recieve_messages(int sock, socket_callback callback) {
         for (i = 0; i < sockets_count; i++)
             FD_SET(sockets[i], &set);
 
-        if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) <= 0)
+        if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) <= 0)       // ДЛЯ ЧЕГО УСЛОВИЕ ?
             continue;
         if (FD_ISSET(sock, &set)) {
             cli_sock = accept(sock, NULL, NULL);
@@ -177,7 +202,7 @@ static int recieve_messages(int sock, socket_callback callback) {
                     max_sock_fd = cli_sock;
             }
         } else {
-            max_sock_fd = process_sockets(&set, callback, sockets, &sockets_count);
+            max_sock_fd = process_sockets(&set, callback, sockets, &sockets_count); /* Присоединился новый клиент, обработаем сокет */
             if (max_sock_fd < sock)
                 max_sock_fd = sock;
         }
@@ -188,6 +213,8 @@ static int recieve_messages(int sock, socket_callback callback) {
 inline static int check_detected_conn(const char *msg, size_t len) {
     return strncmp(msg, IDENT_MSG, len);
 }
+
+/* Функция для формирования сообщения для широковещания*/
 inline static int prepare_broadcast_msg(char *msg, int max_len) {
     return snprintf(msg, max_len, "%s", IDENT_MSG); 
 }
@@ -218,6 +245,13 @@ static int wait_connection(struct sockaddr_in *addr, int srv_sock,
 }
 
 #ifndef USE_LOOPBACK
+/* Функция возвращает количество найденных сетевых интерфейсов (IP адреса),
+ * адреса найденных интерфейсов помещаются в параметр ips. 
+ * Параметры:
+ * ips - массив IP адресов найденных интерфейсов;
+ * max_count - максимальное количество сетевых интерфейсов;
+ * use_loopback - ключ использования LOOPBACK (использовать, если значение больше 0).
+ */
 static int get_hostIPs(uint32_t *ips, int max_count, int use_loopback) {
     struct ifaddrs *ifap, *ifa;
     struct sockaddr_in *addr;
@@ -225,8 +259,7 @@ static int get_hostIPs(uint32_t *ips, int max_count, int use_loopback) {
 
     if (getifaddrs(&ifap) == 0) {
         for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-            if ((ifa->ifa_addr->sa_family == AF_INET) && 
-                    !(use_loopback && (ifa->ifa_flags & IFF_LOOPBACK))) {
+            if ((ifa->ifa_addr->sa_family == AF_INET) && !(use_loopback && (ifa->ifa_flags & IFF_LOOPBACK))) {
                 addr = (struct sockaddr_in *) ifa->ifa_addr;
                 for (j = 0; j != -1 && j < i; j++)
                     if (ips[j] == addr->sin_addr.s_addr)
@@ -244,6 +277,11 @@ static int get_hostIPs(uint32_t *ips, int max_count, int use_loopback) {
     return i;
 }
 
+/* Функция возвращает количество интерфейсов, которые будут
+ * использованы  при широковещании.
+ * IP адреса помещаются в параметр ips
+ * Параметр msx_count указывает максимальное число сетевых интерфейсов.
+ */
 static int get_hostIP(char (*ips)[4 * sizeof("000")], int max_count) {
     char ip_addr[4 * sizeof("000")];
     uint32_t ips_i[MAX_INTERFACES_COUNT];
@@ -256,8 +294,8 @@ static int get_hostIP(char (*ips)[4 * sizeof("000")], int max_count) {
 
     count = get_hostIPs(ips_i, max_count, 1);
     for (i = 0; i < count; i++) {
-        addr_ref = (unsigned char *)&(ips_i[i]);
-        sprintf(ip_addr, "%d.%d.%d.%d",
+        addr_ref = (unsigned char *)&(ips_i[i]);    
+        sprintf(ip_addr, "%d.%d.%d.%d",                         // ЧТО ПРОИСХОДИТ ?
                 addr_ref[0] & 0xff, addr_ref[1] & 0xff,
                 addr_ref[2] & 0xff, 0xff);
         strcpy(ips[i], ip_addr);
@@ -266,6 +304,9 @@ static int get_hostIP(char (*ips)[4 * sizeof("000")], int max_count) {
     return count;
 }
 
+/* Функция для широковещания.
+ * Получает список интерфейсов 
+ */
 static void *broadcast_start(void *arg) {
     int sock;
     int brc_perms;
@@ -280,14 +321,16 @@ static void *broadcast_start(void *arg) {
     int ips_i_count;
     int i, j = 0;
 
+    /* Цикл: пока не найдены интерфейсы*/
     do {
-        ips_count = get_hostIP(brc_ips, MAX_INTERFACES_COUNT);
+        ips_count = get_hostIP(brc_ips, MAX_INTERFACES_COUNT); 
         if (ips_count == 0) {
             err(BROADCAST, "get_hostIP failure");
             sleep(LONG_TIMEOUT);
         }
     } while (ips_count == 0);
 
+    /* Цикл: для всех найденных интерфейсов призвести широковещание*/
     for (i = 0; i < ips_count; i++) {
         brc_ip = brc_ips[i];
         if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -308,16 +351,17 @@ static void *broadcast_start(void *arg) {
         socks[i] = sock;
     }
 
-    msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);
+    msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);          // ДЛЯ ЧЕГО ?
 
     while (1) {
-        if (j++ % (LONG_TIMEOUT / SHORT_TIMEOUT) == 0) {
+        if (j++ % (LONG_TIMEOUT / SHORT_TIMEOUT) == 0) {        // НЕПОНЯТНОЕ УСЛОВИЕ !
             ips_i_count = get_hostIPs(ips_i, MAX_INTERFACES_COUNT, 1);
             if (ips_i_count != ips_count)
                 j = -1;
             else
                 j = 1;
         }
+        /* Непосредственно широковещание*/
         for (i = 0; i < ips_count; i++) {
             log(BROADCAST, "sending broadcast message to address %s", brc_ips[i]);
             if (sendto(socks[i], msg, msg_len, 0, 
@@ -339,6 +383,11 @@ static void *broadcast_start(void *arg) {
 
 #else /* USE_LOOPBACK defined */
 
+/* Функция для широковещания, если не требуется 
+ * игнорировать LOOPBACK.
+ * Сообщения посылаемые данным хостом, будут им 
+ * же и приниматься.
+ */
 static void *broadcast_start(void *arg) {
     int sock;
     int brc_perms;
@@ -374,6 +423,11 @@ static void *broadcast_start(void *arg) {
 }
 #endif /* USE_LOOPBACK */
 
+/* Функция создает поток, который при запуске,
+ * начинает широковещание.
+ * Идентификатор потока записывается в аргумент thread.
+ * Если поток не запустился, возвращается код ошибки.
+ */
 inline static int broadcast(pthread_t *thread) {
     int err = 0;
 
@@ -386,6 +440,10 @@ inline static int broadcast(pthread_t *thread) {
     return err;
 }
 
+/* Функция создает и инициализирует сервер.
+ * Устанавливает callback-функцию при получении сообщения.
+ * Ошибка возвращается, если не удалось инициализировать сервер.
+ */
 static int create_server(socket_callback callback) {
     int srv_sock = -1;
     struct sockaddr_in addr;
@@ -398,11 +456,13 @@ static int create_server(socket_callback callback) {
     if (srv_sock == -1)
         return -1;
 
-    recieve_messages(srv_sock, callback);
+    recieve_messages(srv_sock, callback);   // Ожидание попыток присоединиться клиентами
     close(srv_sock);
     return 0;
 }
 
+/* Функция устанавливает соединение.
+ */
 static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     char srv_ch_addr[INET_ADDRSTRLEN];
     int s, rc, r = 0;
@@ -426,6 +486,8 @@ static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     return r;
 }
 
+/* Функция ожидает широковещательного сообщения от сервера.
+ */
 static void *wait_servers(void *arg) {
     struct sockaddr_in srv_addr;
     struct sockaddr_in sock_addr;
@@ -451,7 +513,7 @@ static void *wait_servers(void *arg) {
         wait_connection(&srv_addr, srv_sock, local_ips, ips_count);
 
 #ifndef USE_LOOPBACK
-        ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
+        ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0); 
         for (i = 0; !flag && i < ips_count; i++) {
             if (srv_addr.sin_addr.s_addr == local_ips[i])
                 flag = 2;
@@ -477,6 +539,9 @@ static void *wait_servers(void *arg) {
     return NULL;
 }
 
+/* Функция производит обработку сокета который готового к чтению.
+ * Вызывается callback-функция для обработки сообщения.
+ */
 static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback callback) {
     ssize_t bytes_read;
     char msg[BUF_MAX_LEN];
@@ -484,15 +549,15 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
     int rc;
     int locked = 0;
 
-    for (i = 0, offset = 0; i < q->count; i++) {
-        if (offset) {
+    for (i = 0, offset = 0; i < q->count; i++) {    /* Проверить все серверы */
+        if (offset) {                                                               // ЧТО ЗА offset ?
             q->sockets[i] = q->sockets[i + offset];
             q->addrs[i] = q->addrs[i + offset];
         }
-        if (FD_ISSET(q->sockets[i], set)) {
+        if (FD_ISSET(q->sockets[i], set)) {         /* Если сокет готов к чтению */  
             bytes_read = recv(q->sockets[i], msg, BUF_MAX_LEN, 0);
             if (bytes_read <= 0) {
-                log(CLIENT, "server %d had been disconnected", q->sockets[i]);
+                log(CLIENT, "server %d had been disconnected", q->sockets[i]);  // ПОЧЕМУ DISCONNECTED ?
                 offset++;
                 i--;
                 locked = 1;
@@ -500,8 +565,8 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
                 check_rwlock(CLIENT, rc, "pthread_rwlock_wrlock");
                 close(q->sockets[i]);
                 q->count--;
-            } else {
-                if (msg[bytes_read - 1] == '\n')
+            } else {                                /* Сообщение получено */
+                if (msg[bytes_read - 1] == '\n')    
                     bytes_read--;
                 msg[bytes_read] = 0;
                 if (callback)
@@ -516,11 +581,18 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
     return 0;
 }
 
+/* Функция обрабатывает сообщения полученные от серверов
+ * с которыми клиент установил соединение.
+ * В данной функции производится мультиплексирование вводв\вывода.
+ * Блокировка на системном вызове, если один из сокетов готов к
+ * чтению, то управление передается функции recv_srv_msg(описана выше).
+ * Если соединений нет, то процесс засыпает на некоторое время.
+ */
 static void *recieve_servers_messages(void *arg) {
     fd_set set;
     int rc, i;
     int max_sock_fd;
-    socket_callback callback;
+    socket_callback callback; /* callback-функция для обработки сообщения от сервера клиентом*/
     struct sockets_queue *q;
     void **args = arg;
 
@@ -536,18 +608,18 @@ static void *recieve_servers_messages(void *arg) {
         rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
 
-        for (i = 0; i < q->count; i++) {
+        for (i = 0; i < q->count; i++) {    /* Устанавливаем список интересующих дескрипторов */
             FD_SET(q->sockets[i], &set);
             if (max_sock_fd < q->sockets[i])
                 max_sock_fd = q->sockets[i];
         }
-        if (q->count == 0) {
+        if (q->count == 0) {                            /* Нет активных подключений*/
             rc = pthread_rwlock_unlock(&(q->rwlock));
             check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
             sleep(SHORT_TIMEOUT);
         } else {
             rc = pthread_rwlock_unlock(&(q->rwlock));
-            check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+            check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");          
             if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0) {
                 recv_srv_msg(&set, q, callback);
             }
@@ -556,22 +628,36 @@ static void *recieve_servers_messages(void *arg) {
     return NULL;
 }
 
+/* Функция создает сервер. 
+ * Создается поток, который периодически рассылает
+ * широковещательные сообщения по локальной сети.
+ * Основной процесс инициализирует сервер и устанавливает
+ * callback-функцию.
+ */ 
 int start_server(socket_callback process_cli_msg_callback) {
-    pthread_t brc_thread;
+    pthread_t brc_thread;    
     int r = 0;
-    r = broadcast(&brc_thread);
-    if (r == 0)
-        r = create_server(process_cli_msg_callback);
+    r = broadcast(&brc_thread); 
+    if (r == 0)                                                             // ЧТО ЕСЛИ ПОТОК ЗАПУСТИТСЯ, А СЕРВЕР НЕ СОЗДАСТСЯ (ПОТОК ОСТАНЕТСЯ В СИСТЕМЕ)
+        r = create_server(process_cli_msg_callback);   // Непонятная ветка  // ИЛИ ЗАВЕРШИТСЯ ПРИ ЗАВЕРШЕНИИ ПРОЦЕССА
+    // if (r != 0)
+        //pthread_exit((void*)PTHREAD_CANCELED);  
     return r;
 }
 
+/* Функция создает клиента.
+ * Процесс делится на два потока, один из которых
+ * ожидает подключения серверов.                   ???????????
+ * Второй поток получает сообщения от серверов
+ * и обрабатывает их.
+ */
 int start_client(socket_callback process_srv_msg_callback, server_answ_callback srv_answ) {
     pthread_t brc_thread, srv_thread;
-    struct sockets_queue q = { .rwlock = PTHREAD_RWLOCK_INITIALIZER };
+    struct sockets_queue q = { .rwlock = PTHREAD_RWLOCK_INITIALIZER };  
     int err;
     void *args[] = { process_srv_msg_callback, &q };
 
-    err = pthread_create(&brc_thread, NULL, &wait_servers, &q);
+    err = pthread_create(&brc_thread, NULL, &wait_servers, &q);     
     if (err != 0)
         err_n(CLIENT, "pthread_create failure");
 
@@ -579,7 +665,7 @@ int start_client(socket_callback process_srv_msg_callback, server_answ_callback 
     if (err != 0)
         err_n(CLIENT, "pthread_create failure");
 
-    if (srv_answ)
+    if (srv_answ)   /* Обработка ответа сервера*/
         srv_answ(&q);
     else
         err(CLIENT, "server answers can't be processed");
