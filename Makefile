@@ -13,6 +13,8 @@ DEFINES =   DEBUG \
             PORT=7777 \
             SHORT_TIMEOUT=2 \
             LONG_TIMEOUT=10 \
+            TIMEOUT_DELAY=1 \
+            MAX_PIECES_COUNT=10000 \
             USE_LOOPBACK
 
 # PRINT_LINES
