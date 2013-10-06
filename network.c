@@ -127,7 +127,10 @@ static int create_client(const char *addr) {
     return sock;
 }
 
-/* */
+/* 
+ * Получает сообщение от сокета, на котором возникло некоторое событие
+ * и обрабатывает его. Удаляет сокет из массива в случае разрыва соединения.
+ */
 static int process_sockets(fd_set *set, socket_callback callback, 
         int *opened_sockets, int *max_index) {
     int i;
@@ -136,14 +139,14 @@ static int process_sockets(fd_set *set, socket_callback callback,
     int offset;
     int max_sock = -1;
 
-    for (i = 0, offset = 0; i < *max_index; ) {
+    for (i = 0, offset = 0; i < *max_index; i++) {
         if (offset)
             *(opened_sockets + i) = *(opened_sockets + i + offset);
         if (max_sock < *(opened_sockets + i))
             max_sock = *(opened_sockets + i);
         if (FD_ISSET(*(opened_sockets + i), set)) {
             bytes_read = recv(*(opened_sockets + i), buf, BUF_MAX_LEN, 0);
-            if (bytes_read <= 0) {
+            if (bytes_read == ECONNRESET) {
                 log(CLIENT, "connection closed: %d", *(opened_sockets + i));
                 close(*(opened_sockets + i));
                 (*max_index)--;
@@ -157,13 +160,12 @@ static int process_sockets(fd_set *set, socket_callback callback,
                     callback(*(opened_sockets + i), buf, bytes_read);
             }
         }
-        i++;
     }
     return max_sock;
 }
 
-/* Функция ожидает новые соединения от клиентов.
- * ?????????????????
+/* 
+ * Функция ожидает новые соединения от клиентов.
  */
 static int recieve_messages(int sock, socket_callback callback) {   
     int cli_sock = -1;
@@ -172,7 +174,7 @@ static int recieve_messages(int sock, socket_callback callback) {
     fd_set set;
     int max_sock_fd = sock;
     int i;
-    char *err_str = "connection refused!\n";    // Нужна ли эта переменная
+    char *err_str = "connection refused!\n";
 
     make_sock_nonblock(sock);
 
@@ -182,9 +184,10 @@ static int recieve_messages(int sock, socket_callback callback) {
         for (i = 0; i < sockets_count; i++)
             FD_SET(sockets[i], &set);
 
-        if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) <= 0)       // ДЛЯ ЧЕГО УСЛОВИЕ ?
+        if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) <= 0)
             continue;
         if (FD_ISSET(sock, &set)) {
+            /* Присоединился новый клиент, обработаем сокет */
             cli_sock = accept(sock, NULL, NULL);
             if (cli_sock < 0) {
                 err_n(SERVER, "accept failure!");
@@ -202,7 +205,7 @@ static int recieve_messages(int sock, socket_callback callback) {
                     max_sock_fd = cli_sock;
             }
         } else {
-            max_sock_fd = process_sockets(&set, callback, sockets, &sockets_count); /* Присоединился новый клиент, обработаем сокет */
+            max_sock_fd = process_sockets(&set, callback, sockets, &sockets_count);
             if (max_sock_fd < sock)
                 max_sock_fd = sock;
         }
@@ -486,7 +489,8 @@ static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     return r;
 }
 
-/* Функция ожидает широковещательного сообщения от сервера.
+/* 
+ * Функция ожидает широковещательного сообщения от сервера.
  */
 static void *wait_servers(void *arg) {
     struct sockaddr_in srv_addr;
@@ -508,17 +512,20 @@ static void *wait_servers(void *arg) {
     if (srv_sock == -1)
         return NULL;
 
+#ifndef USE_LOOPBACK
+    ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0); 
+#endif
     while (1) {
         flag = 0;
         wait_connection(&srv_addr, srv_sock, local_ips, ips_count);
 
 #ifndef USE_LOOPBACK
-        ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0); 
         for (i = 0; !flag && i < ips_count; i++) {
             if (srv_addr.sin_addr.s_addr == local_ips[i])
                 flag = 2;
         }
         if (!flag) {
+        ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0); 
 #endif
         rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
@@ -544,7 +551,8 @@ static void *wait_servers(void *arg) {
     return NULL;
 }
 
-/* Функция производит обработку сокета который готового к чтению.
+/*
+ * Функция производит обработку сокета который готов к чтению.
  * Вызывается callback-функция для обработки сообщения.
  */
 static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback callback) {
@@ -554,15 +562,15 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
     int rc;
     int locked = 0;
 
-    for (i = 0, offset = 0; i < q->count; i++) {    /* Проверить все серверы */
-        if (offset) {                                                               // ЧТО ЗА offset ?
+    for (i = 0, offset = 0; i < q->count; i++) {
+        if (offset) {
             q->sockets[i] = q->sockets[i + offset];
             q->addrs[i] = q->addrs[i + offset];
         }
-        if (FD_ISSET(q->sockets[i], set)) {         /* Если сокет готов к чтению */  
+        if (FD_ISSET(q->sockets[i], set)) {
             bytes_read = recv(q->sockets[i], msg, BUF_MAX_LEN, 0);
-            if (bytes_read <= 0) {
-                log(CLIENT, "server %d had been disconnected", q->sockets[i]);  // ПОЧЕМУ DISCONNECTED ?
+            if (bytes_read == ECONNRESET) {
+                log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;
                 i--;
                 locked = 1;
@@ -570,7 +578,7 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
                 check_rwlock(CLIENT, rc, "pthread_rwlock_wrlock");
                 close(q->sockets[i]);
                 q->count--;
-            } else {                                /* Сообщение получено */
+            } else {
                 if (msg[bytes_read - 1] == '\n')    
                     bytes_read--;
                 msg[bytes_read] = 0;
@@ -586,18 +594,16 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
     return 0;
 }
 
-/* Функция обрабатывает сообщения полученные от серверов
+/*
+ * Функция обрабатывает сообщения полученные от серверов
  * с которыми клиент установил соединение.
- * В данной функции производится мультиплексирование вводв\вывода.
- * Блокировка на системном вызове, если один из сокетов готов к
- * чтению, то управление передается функции recv_srv_msg(описана выше).
  * Если соединений нет, то процесс засыпает на некоторое время.
  */
 static void *recieve_servers_messages(void *arg) {
     fd_set set;
     int rc, i;
     int max_sock_fd;
-    socket_callback callback; /* callback-функция для обработки сообщения от сервера клиентом*/
+    socket_callback callback;
     struct sockets_queue *q;
     void **args = arg;
 
@@ -613,21 +619,19 @@ static void *recieve_servers_messages(void *arg) {
         rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
 
-        for (i = 0; i < q->count; i++) {    /* Устанавливаем список интересующих дескрипторов */
+        for (i = 0; i < q->count; i++) {
             FD_SET(q->sockets[i], &set);
             if (max_sock_fd < q->sockets[i])
                 max_sock_fd = q->sockets[i];
         }
-        if (q->count == 0) {                            /* Нет активных подключений*/
-            rc = pthread_rwlock_unlock(&(q->rwlock));
-            check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
+
+        rc = pthread_rwlock_unlock(&(q->rwlock));
+        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");          
+        if (q->count == 0)
             sleep(SHORT_TIMEOUT);
-        } else {
-            rc = pthread_rwlock_unlock(&(q->rwlock));
-            check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");          
-            if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0) {
+        else {
+            if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0)
                 recv_srv_msg(&set, q, callback);
-            }
         }
     }
     return NULL;
@@ -643,16 +647,15 @@ int start_server(socket_callback process_cli_msg_callback) {
     pthread_t brc_thread;    
     int r = 0;
     r = broadcast(&brc_thread); 
-    if (r == 0)                                                             // ЧТО ЕСЛИ ПОТОК ЗАПУСТИТСЯ, А СЕРВЕР НЕ СОЗДАСТСЯ (ПОТОК ОСТАНЕТСЯ В СИСТЕМЕ)
-        r = create_server(process_cli_msg_callback);   // Непонятная ветка  // ИЛИ ЗАВЕРШИТСЯ ПРИ ЗАВЕРШЕНИИ ПРОЦЕССА
-    // if (r != 0)
-        //pthread_exit((void*)PTHREAD_CANCELED);  
+    if (r == 0)
+        r = create_server(process_cli_msg_callback);
     return r;
 }
 
-/* Функция создает клиента.
- * Процесс делится на два потока, один из которых
- * ожидает подключения серверов.                   ???????????
+/* 
+ * Функция создает клиента.
+ * Процесс делится на 3 потока, один из которых
+ * ожидает подключения серверов.
  * Второй поток получает сообщения от серверов
  * и обрабатывает их.
  */
@@ -662,7 +665,7 @@ int start_client(socket_callback process_srv_msg_callback, server_answ_callback 
     int err;
     void *args[] = { process_srv_msg_callback, &q };
 
-    err = pthread_create(&brc_thread, NULL, &wait_servers, &q);     
+    err = pthread_create(&brc_thread, NULL, &wait_servers, &q);
     if (err != 0)
         err_n(CLIENT, "pthread_create failure");
 

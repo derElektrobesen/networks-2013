@@ -13,8 +13,7 @@
     (cli == CLIENT ? "Client" : \
     (cli == BROADCAST ? "Broadcast" : "Other")))
 
-#   define USE_LINE 0
-#   if USE_LINE == 1
+#   ifdef PRINT_LINES
 #       define log(cli, f_str, args...) \
             fprintf(stdout, "[ %9s ] " f_str " at line %d\n", print_cli(cli), ##args, __LINE__)
 #       define err(cli, f_str, args...) \

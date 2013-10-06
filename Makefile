@@ -15,6 +15,8 @@ DEFINES =   DEBUG \
             LONG_TIMEOUT=10 \
             USE_LOOPBACK
 
+# PRINT_LINES
+
 DEFS = $(DEFINES:%=-D%)
 
 GLOBAL_SRCS = network.c proto.c
