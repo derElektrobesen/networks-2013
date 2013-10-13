@@ -15,7 +15,7 @@
 struct proto_fields {
     int pack_num;
     int action_type;
-    int msg_len;/* ? */
+    int msg_len; /* ? */
     union {
     struct {
             int piece_num;
@@ -24,7 +24,7 @@ struct proto_fields {
     };
 };
 
-int encode_msg(struct proto_fields *fields, char *msn);
+int encode_msg(struct proto_fields *fields, char *msg);
 size_t decode_msg(const struct proto_fields *fields, const char *msg);
 
 #endif

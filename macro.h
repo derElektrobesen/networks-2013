@@ -30,7 +30,7 @@
 #   define check_rwlock(cli, rc, fname) \
         rc == 0 ? 0 : err_n(cli, fname " failure");
 
-#else /* DEBUG is undefined */
+#else  /* DEBUG is undefined */
 #   define log(...)
 #   define err(...)
 #   define err_n(...)

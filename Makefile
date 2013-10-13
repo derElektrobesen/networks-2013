@@ -1,7 +1,7 @@
 CC = gcc
 
 CFLAGS = -Wall
-FLAGS = -pthread -lpthread -D_MULTI_THREADED
+FLAGS = -pthread -lpthread -D_MULTI_THREADED -lssl -lcrypto
 
 SRV = SRV
 CLI = CLI
@@ -10,15 +10,17 @@ SRV_TAR = srv
 CLI_TAR = cli
 
 DEFINES =   DEBUG \
-            PORT=7777 \
-            SHORT_TIMEOUT=2 \
-            LONG_TIMEOUT=10 \
-            ALARM_DELAY=1 \
-            FILE_TIMEOUT=3 \
-            BUF_MAX_LEN=16384 \
-            MAX_PIECES_COUNT=10000 \
-            USE_LOOPBACK \
-            DONT_DO_SRAND
+			PORT=7777 \
+			SHORT_TIMEOUT=2 \
+			LONG_TIMEOUT=10 \
+			ALARM_DELAY=1 \
+			FILE_TIMEOUT=3 \
+			BUF_MAX_LEN=16384 \
+			MAX_PIECES_COUNT=10000 \
+			MAX_PACK_NUM=1000000 \
+			MAX_PACK_NUM_LEN=7 \
+			USE_LOOPBACK \
+			DONT_DO_SRAND
 
 # Unused macro defs
 # PRINT_LINES

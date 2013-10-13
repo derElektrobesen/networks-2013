@@ -33,7 +33,7 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
         err_no = errno;
         return init_server_err(sock, err_no);
     }
-    
+
     log(SERVER, "server created: %d", sock);
 
     if (bind(sock, (struct sockaddr *)addr, sizeof(*addr)) < 0) {
@@ -42,7 +42,7 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
         return init_server_err(sock, err_no);
     }
 
-    if (proto == SOCK_STREAM && listen(sock, queue_len) < 0) { 
+    if (proto == SOCK_STREAM && listen(sock, queue_len) < 0) {
         err_n(SERVER, "listen failure");
         err_no = errno;
         return init_server_err(sock, err_no);
@@ -58,7 +58,7 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
 static int make_sock_nonblock(int sock) {
     int e;
     e = fcntl(sock, F_SETFL, O_NONBLOCK);
-    if (e < 0) 
+    if (e < 0)
         err_n(-1, "fcntl failure");
     return e;
 }
@@ -75,7 +75,7 @@ static int init_client_err(int sock, int err_no) {
 }
 
 /**
- * Функция пытается установить соединение 
+ * Функция пытается установить соединение
  * с сервером по определенному алгоритму.
  * Используется клиентом.
  */
@@ -111,33 +111,33 @@ static int create_client(const char *addr) {
     hint.ai_family = AF_INET;
     hint.ai_socktype = SOCK_STREAM;
     if ((err_no = getaddrinfo(addr, port, &hint, &ailist)) < 0) {
-        err_no = errno;        
+        err_no = errno;
         err_n(CLIENT, "getaddrinfo: %s", gai_strerror(err_no));
         return init_client_err(-1, err_no);
     }
-    
+
     if ((sock = socket(ailist->ai_family, ailist->ai_socktype, ailist->ai_protocol)) < 0) {
         err_no = errno;
         err_n(CLIENT, "socket failure");
-        return init_client_err(-1, err_no);        
+        return init_client_err(-1, err_no);
     }
-    
+
     make_sock_nonblock(sock);
 
     if (connect_retry(sock, ailist->ai_addr, ailist->ai_addrlen, 5) < 0) {
         err_no = errno;
         err_n(CLIENT, "connection failure\n");
         return init_client_err(sock, err_no);
-    } 
+    }
     freeaddrinfo(ailist);
     return sock;
 }
 
-/** 
+/**
  * Получает сообщение от сокета, на котором возникло некоторое событие
  * и обрабатывает его. Удаляет сокет из массива в случае разрыва соединения.
  */
-static int process_sockets(fd_set *set, socket_callback callback, 
+static int process_sockets(fd_set *set, socket_callback callback,
         int *opened_sockets, int *max_index) {
     int i;
     ssize_t bytes_read;
@@ -170,10 +170,10 @@ static int process_sockets(fd_set *set, socket_callback callback,
     return max_sock;
 }
 
-/** 
+/**
  * Функция ожидает новые соединения от клиентов.
  */
-static int recieve_messages(int sock, socket_callback callback) {   
+static int recieve_messages(int sock, socket_callback callback) {
     int cli_sock = -1;
     int sockets[MAX_CONNECTIONS];
     int sockets_count = 0;
@@ -225,10 +225,10 @@ inline static int check_detected_conn(const char *msg, size_t len) {
 
 /* Функция для формирования сообщения для широковещания */
 inline static int prepare_broadcast_msg(char *msg, int max_len) {
-    return snprintf(msg, max_len, "%s", IDENT_MSG); 
+    return snprintf(msg, max_len, "%s", IDENT_MSG);
 }
 
-static int wait_connection(struct sockaddr_in *addr, int srv_sock, 
+static int wait_connection(struct sockaddr_in *addr, int srv_sock,
         uint32_t *ignore_ips, int ips_count) {
     char buf[BUF_MAX_LEN];
     int flag = 0;
@@ -245,7 +245,7 @@ static int wait_connection(struct sockaddr_in *addr, int srv_sock,
                 flag = 0;
             } else {
                 log(BROADCAST, "detected connection with message: %s", buf);
-                if (check_detected_conn(buf, BUF_MAX_LEN) == 0) 
+                if (check_detected_conn(buf, BUF_MAX_LEN) == 0)
                     flag = 1;
             }
         }
@@ -256,7 +256,7 @@ static int wait_connection(struct sockaddr_in *addr, int srv_sock,
 #ifndef USE_LOOPBACK
 /**
  * Функция возвращает количество найденных сетевых интерфейсов (IP адреса),
- * адреса найденных интерфейсов помещаются в параметр ips. 
+ * адреса найденных интерфейсов помещаются в параметр ips.
  * Параметры:
  * ips - массив IP адресов найденных интерфейсов;
  * max_count - максимальное количество сетевых интерфейсов;
@@ -305,7 +305,7 @@ static int get_hostIP(char (*ips)[4 * sizeof("000")], int max_count) {
 
     count = get_hostIPs(ips_i, max_count, 1);
     for (i = 0; i < count; i++) {
-        addr_ref = (unsigned char *)&(ips_i[i]);    
+        addr_ref = (unsigned char *)&(ips_i[i]);
         sprintf(ip_addr, "%d.%d.%d.%d",                         // ЧТО ПРОИСХОДИТ ?
                 addr_ref[0] & 0xff, addr_ref[1] & 0xff,
                 addr_ref[2] & 0xff, 0xff);
@@ -317,7 +317,7 @@ static int get_hostIP(char (*ips)[4 * sizeof("000")], int max_count) {
 
 /**
  * Функция для широковещания.
- * Получает список интерфейсов 
+ * Получает список интерфейсов
  */
 static void *broadcast_start(void *arg) {
     int sock;
@@ -335,7 +335,7 @@ static void *broadcast_start(void *arg) {
 
     /* Цикл: пока не найдены интерфейсы */
     do {
-        ips_count = get_hostIP(brc_ips, MAX_INTERFACES_COUNT); 
+        ips_count = get_hostIP(brc_ips, MAX_INTERFACES_COUNT);
         if (ips_count == 0) {
             err(BROADCAST, "get_hostIP failure");
             sleep(LONG_TIMEOUT);
@@ -374,7 +374,7 @@ static void *broadcast_start(void *arg) {
         }
         for (i = 0; i < ips_count; i++) {
             log(BROADCAST, "sending broadcast message to address %s", brc_ips[i]);
-            if (sendto(socks[i], msg, msg_len, 0, 
+            if (sendto(socks[i], msg, msg_len, 0,
                     (struct sockaddr *)&(brc_addrs[i]), sizeof(brc_addrs[i])) != msg_len) {
                 err_n(BROADCAST, "sendto failure");
                 j = -1;
@@ -393,9 +393,9 @@ static void *broadcast_start(void *arg) {
 #else /* USE_LOOPBACK defined */
 
 /**
- * Функция для широковещания, если не требуется 
+ * Функция для широковещания, если не требуется
  * игнорировать LOOPBACK.
- * Сообщения посылаемые данным хостом, будут им 
+ * Сообщения посылаемые данным хостом, будут им
  * же и приниматься.
  */
 static void *broadcast_start(void *arg) {
@@ -499,7 +499,7 @@ static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     return r;
 }
 
-/** 
+/**
  * Функция ожидает широковещательного сообщения от сервера.
  */
 static void *wait_servers(void *arg) {
@@ -523,7 +523,7 @@ static void *wait_servers(void *arg) {
         return NULL;
 
 #ifndef USE_LOOPBACK
-    ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0); 
+    ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
 #endif
     while (1) {
         flag = 0;
@@ -535,7 +535,7 @@ static void *wait_servers(void *arg) {
                 flag = 2;
         }
         if (!flag) {
-        ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0); 
+        ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
 #endif
         rc = pthread_rwlock_rdlock(&(q->rwlock));
         check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
@@ -588,7 +588,7 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
                 close(q->sockets[i]);
                 q->count--;
             } else {
-                if (msg[bytes_read - 1] == '\n')    
+                if (msg[bytes_read - 1] == '\n')
                     bytes_read--;
                 msg[bytes_read] = 0;
                 if (callback)
@@ -635,7 +635,7 @@ static void *recieve_servers_messages(void *arg) {
         }
 
         rc = pthread_rwlock_unlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");          
+        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
         if (q->count == 0)
             sleep(SHORT_TIMEOUT);
         else {
@@ -647,22 +647,22 @@ static void *recieve_servers_messages(void *arg) {
 }
 
 /**
- * Функция создает сервер. 
+ * Функция создает сервер.
  * Создается поток, который периодически рассылает
  * широковещательные сообщения по локальной сети.
  * Основной процесс инициализирует сервер и устанавливает
  * callback-функцию.
- */ 
+ */
 int start_server(socket_callback process_cli_msg_callback) {
-    pthread_t brc_thread;    
+    pthread_t brc_thread;
     int r = 0;
-    r = broadcast(&brc_thread); 
+    r = broadcast(&brc_thread);
     if (r == 0)
         r = create_server(process_cli_msg_callback);
     return r;
 }
 
-/** 
+/**
  * Функция создает клиента.
  * Процесс делится на 3 потока, один из которых
  * ожидает подключения серверов.
@@ -671,7 +671,7 @@ int start_server(socket_callback process_cli_msg_callback) {
  */
 int start_client(socket_callback process_srv_msg_callback, server_answ_callback srv_answ) {
     pthread_t brc_thread, srv_thread;
-    struct sockets_queue q = { .rwlock = PTHREAD_RWLOCK_INITIALIZER };  
+    struct sockets_queue q = { .rwlock = PTHREAD_RWLOCK_INITIALIZER };
     int err;
     void *args[] = { process_srv_msg_callback, &q };
 
