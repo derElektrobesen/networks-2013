@@ -10,17 +10,42 @@
 #include <openssl/md5.h>
 #include "macro.h"
 
-#define ACT_SEND_MSG 1
+#define ACT_DOWNLOAD_MSG        1
+#define ACT_DOWNLOAD_MSG_ANSW   2
+#define ACT_SEARCH_FILE         3
+#define ACT_SEARCH_FILE_ANSW    4
 
 struct proto_fields {
-    int pack_num;
-    int action_type;
-    int msg_len; /* ? */
+    unsigned int pack_id;
+    unsigned int action_type;
+    unsigned int msg_len;
+    unsigned char data_bits;
+    unsigned char action_bits;
+    unsigned char error_bits;
     union {
-    struct {
-            int piece_num;
-            int file_num;
-        } act_send_msg;
+        /* Запрос клиента на скачивание файла */
+        struct {
+            unsigned int piece_num;
+            unsigned int file_num;
+            unsigned char sum[MD5_DIGEST_LENGTH];
+        } act_download_piece;
+        /* Ответ сервера на запрос на скачивание файла */
+        struct {
+            unsigned char sum[MD5_DIGEST_LENGTH];
+            unsigned char data[BUF_MAX_LEN - 
+                               CONTROL_INFO_LEN - 
+                               MD5_DIGEST_LENGTH];
+        } act_download_piece_answ;
+        /* Запрос клиента на поиск файла */
+        struct {
+            char file_path[FILE_NAME_MAX_LEN];
+        } act_search_file;
+        /* Ответ сервера на запрос поиска файла */
+        struct {
+            unsigned char sum[MD5_DIGEST_LENGTH];
+            unsigned int file_num;
+            unsigned long file_size;
+        } act_search_file_answ;
     };
 };
 

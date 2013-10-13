@@ -4,13 +4,15 @@ static struct active_servers srv_head;
 
 static int process_timeouts() {
     struct active_servers *srv = &srv_head;
-    int i;
+    /* int i; */
     do {
         if (srv->status == SRV_BUSY && --(srv->timeout) == 0) {
             /* Timeout came */
             srv->status = SRV_READY;
+            /*
             i = --(srv->pieces->cur_elem);
-            srv->pieces->pieces[i] = srv->fields.act_send_msg.piece_num;
+            srv->pieces->pieces[i] = srv->fields.act_send_msg.piece_num; 
+            */
         }
         srv = srv->next;
     } while (srv);
@@ -21,14 +23,16 @@ static int process_distrib() {
     struct active_servers *srv = &srv_head;
     char msg[BUF_MAX_LEN];
     size_t msg_len;
-    int i;
+    /* int i; */
     do {
         /* Send new requests to free active_servers */
         if (srv->status == SRV_READY) {
             srv->timeout = FILE_TIMEOUT;
-            srv->fields.pack_num = (int)random();
+            /* 
+            srv->fields.pack_num = (int)random(); 
             i = srv->pieces->cur_elem;
             srv->fields.act_send_msg.piece_num = srv->pieces->pieces[i];
+            */
             msg_len = decode_msg(&(srv->fields), msg);
             if (msg_len <= 0) {
                 err(CLIENT, "Message decoding failure");
@@ -55,6 +59,8 @@ static void main_handler(int sig) {
 int set_client_alarm() {
 #ifndef DONT_DO_SRAND
     srandom(time(NULL));
+#else
+    srandom(1);
 #endif
     signal(SIGALRM, &main_handler);
 

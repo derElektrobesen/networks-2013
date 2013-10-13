@@ -17,7 +17,7 @@ int get_hash(struct proto_fields *fields, unsigned char *md5digest) {
         return 1;
     }
     /* TODO: Remove act_send_msg field from next line */
-    snprintf((char *)hash_key, sizeof(hash_key), "%d%d", fields->pack_num, fields->act_send_msg.piece_num);
+    //snprintf((char *)hash_key, sizeof(hash_key), "%d%d", fields->pack_num, fields->act_send_msg.piece_num);
 
     MD5_Init(&md5handler);
     MD5_Update(&md5handler, hash_key, sizeof(hash_key));
@@ -33,10 +33,12 @@ int encode_msg(struct proto_fields *fields, char *msg) {
     unsigned char hash_msg[MD5_DIGEST_LENGTH];
 
     /* Fields filling */
+    /*
     fields->pack_num = 0;
     fields->action_type = 0;
     fields->act_send_msg.piece_num = 0;
     fields->msg_len = strlen(msg);
+    */
 
     get_hash(fields, hash_msg);
     if (hash_msg == NULL) {

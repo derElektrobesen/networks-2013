@@ -1,34 +1,24 @@
 1. Чтение конфиг файла
 2. Протокол обмена
-    key\0len\0action\0data
-    key:    Ключ, однозначно идентифицирующий клиентов (num) (2 bytes)
+    pack-id\0len\0proto\0data
+    pack-id:Ключ, однозначно идентифицирующий клиентов (num) (2 bytes)
     len:    Длина data (4 bytes)
     action: 3 bytes
         byte 1: data bits
-            0:  personal key
-            1:  rsa pub key
-            2:  search mask
-            3:  file path
-            4:  timeout
-            5:  max_count
+            0:  hash-bit
+            1:  file-number
+            2:  piece-number
+            3:  data
+            4:  file-path
         byte 2: action bits
-            0:  start search with mask
-            1:  stop search
-            2:  start download file
-            3:  stop download
-            4:  connect
-            5:  disconnect
+            0:  search-file
+            1:  download
+            2:  shutdown-server /* ? */
         byte 3: status bits
-            0:  searching
-            1:  stopped
-            2:  downloading
-            3:  search complete
-            4:  download complete
-            5:  connected
-            6:  disconnected
         byte 4: error bits
-            0:  file not founded
-            1:  timeout
+            0:  file-not-found
+            1:  piece-not-found
+            2:  other-error
 
 3. Вопросы к Алешину
     Поиск клиентов в пределах сети?
@@ -67,12 +57,58 @@
         Иначе -1
 
 6. Возможные события клиента
-    Запрос на получение файла
+    Посылка запроса на получение файла
         Передается имя файла
         Сравнение всех хэш-сумм
         Присвоение файлу номера заданного сервером
 
-    Запрос на получение куска файла
+    Client -> server
+        data-bits:
+            file-path
+        action-bits:
+            search-file
+        status-bits:
+            0
+        error-bits: 
+            0
+
+    Server -> client
+        data-bits:
+            hash-bit
+            file-number
+            file-size
+        action-bits:
+            0
+        status-bits:
+            file-found
+        error-bit
+            file-not-found
+
+    Посылка запроса на получение куска файла
         Передаем номер файла
         Передаем номер куска
         Устанавливаем timeout
+
+    Client -> server
+        data-bits
+            file-number
+            piece-number
+            hash-bit
+        action-bits
+            download
+        status-bits
+            0
+        error-bits 
+            0
+
+    Server -> client
+        data-bits
+            data
+        action-bits
+            0
+        status-bits
+            piece-found
+        error-bits
+            piece-not-found
+            file-not-found
+            
