@@ -2,8 +2,9 @@
 
 #define ITOC_MAX 12
 
-/* Функция преобразует целое положительное 
- * число в строковое представление.
+/**
+ * Функция для преоразования целого числа
+ * в строковое представление.
  */
 char *itoc(int n) {
     if (n < 0)
@@ -18,7 +19,8 @@ char *itoc(int n) {
     /*without reverse*/
 }
 
-/* Функция создает ключ для хеширования.
+/**
+ * Функция создает ключ для хеширования.
  */
 unsigned char *get_hash_key(struct proto_fields *fields) {
     if (fields == NULL) {
@@ -36,7 +38,8 @@ unsigned char *get_hash_key(struct proto_fields *fields) {
     return hash_key;
 }
 
-/* Функция создает хеш.
+/**
+ * Функция создает хеш.
  */
 unsigned char *get_hash(struct proto_fields *fields) {
 
@@ -54,7 +57,8 @@ unsigned char *get_hash(struct proto_fields *fields) {
     free(hash_key);
     return md5digest;
 }
-/* Установка бита
+/**
+ * Установка бита
  */
 unsigned int set_bit(unsigned int val, int pos) {
     if (val < 0 || pos < 0) {
@@ -63,7 +67,8 @@ unsigned int set_bit(unsigned int val, int pos) {
     }
     return (unsigned int)((1 << pos) | val);
 }
-/* Сброс бита 
+/**
+ * Сброс бита 
  */
 unsigned int reset_bit(unsigned int val, int pos) {
     if (val < 0 || pos < 0) {
@@ -73,7 +78,8 @@ unsigned int reset_bit(unsigned int val, int pos) {
     return (unsigned int)((~(1 << pos)) & val);
 }
 
-/*
+/**
+ * 
  */
 int encode_msg(struct proto_fields *fields, char *msg) {
     /* Fields filling */

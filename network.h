@@ -28,10 +28,10 @@
 
 /* Types */
 struct sockets_queue {
-    int sockets[MAX_CONNECTIONS];       // Массив сокетов
-    in_addr_t addrs[MAX_CONNECTIONS];   // Массив активных подключений
-    int count;                          // Число акивных подключений
-    pthread_rwlock_t rwlock;            // Блокировка чтения/записи
+    int sockets[MAX_CONNECTIONS];       ///< Массив сокетов
+    in_addr_t addrs[MAX_CONNECTIONS];   ///< Массив активных подключений
+    int count;                          ///< Число акивных подключений
+    pthread_rwlock_t rwlock;            ///< Блокировка чтения/записи
 };
 
 typedef int (*socket_callback)(int sender_sock, 
