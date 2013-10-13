@@ -54,6 +54,24 @@ unsigned char *get_hash(struct proto_fields *fields) {
     free(hash_key);
     return md5digest;
 }
+/* Установка бита
+ */
+unsigned int set_bit(unsigned int val, int pos) {
+    if (val < 0 || pos < 0) {
+        err_n(SERVER, "incorrect bit position or value mean");
+        return -1;
+    }
+    return (unsigned int)((1 << pos) | val);
+}
+/* Сброс бита 
+ */
+unsigned int reset_bit(unsigned int val, int pos) {
+    if (val < 0 || pos < 0) {
+        err_n(SERVER, "incorrect bit postition or value mean");
+        return -1;
+    }   
+    return (unsigned int)((~(1 << pos)) & val);
+}
 
 /*
  */
