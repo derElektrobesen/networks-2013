@@ -8,6 +8,7 @@ CLI = CLI
 
 SRV_TAR = srv
 CLI_TAR = cli
+O_DIR = obj
 
 DEFINES =   DEBUG \
 			PORT=7777 \
@@ -31,27 +32,28 @@ DEFINES =   DEBUG \
 DEFS = $(DEFINES:%=-D%)
 
 GLOBAL_SRCS = network.c proto.c
-GLOBAL_OBJS = $(GLOBAL_SRCS:%.c=%.o)
+GLOBAL_OBJS = $(GLOBAL_SRCS:%.c=$(O_DIR)/%.o)
 
 SRV_SRCS = srv.c
-SRV_OBJS = $(SRV_SRCS:%.c=%.o)
+SRV_OBJS = $(SRV_SRCS:%.c=$(O_DIR)/%.o)
 
 CLI_SRCS = cli.c
-CLI_OBJS = $(CLI_SRCS:%.c=%.o)
+CLI_OBJS = $(CLI_SRCS:%.c=$(O_DIR)/%.o)
 
 PARAMS = $(FLAGS) $(CFLAGS) $(DEFS)
 
-%.o: %.c
-	$(CC) $(PARAMS) -c $^
+$(O_DIR)/%.o: %.c
+	mkdir -p $(O_DIR)
+	$(CC) $(PARAMS) -c $^ -o $@
 
 all: srv cli
 
 srv: $(GLOBAL_OBJS) $(SRV_OBJS)
-	$(CC) $(PARAMS) -D$(SRV) -c main.c -o server.o
-	$(CC) $(PARAMS) -D$(SRV) server.o $(GLOBAL_OBJS) $(SRV_OBJS) -o $(SRV_TAR)
+	$(CC) $(PARAMS) -D$(SRV) -c main.c -o $(O_DIR)/server.o
+	$(CC) $(PARAMS) -D$(SRV) $(O_DIR)/server.o $(GLOBAL_OBJS) $(SRV_OBJS) -o $(SRV_TAR)
 cli: $(GLOBAL_OBJS) $(CLI_OBJS)
-	$(CC) $(PARAMS) -D$(CLI) -c main.c -o client.o
-	$(CC) $(PARAMS) -D$(CLI) client.o $(GLOBAL_OBJS) $(CLI_OBJS) -o $(CLI_TAR)
+	$(CC) $(PARAMS) -D$(CLI) -c main.c -o $(O_DIR)/client.o
+	$(CC) $(PARAMS) -D$(CLI) $(O_DIR)/client.o $(GLOBAL_OBJS) $(CLI_OBJS) -o $(CLI_TAR)
 
 clean:
-	rm -f $(GLOBAL_OBJS) $(SRV_OBJS) $(CLI_OBJS) client.o server.o $(SRV_TAR) $(CLI_TAR)
+	rm -f $(GLOBAL_OBJS) $(SRV_OBJS) $(CLI_OBJS) $(O_DIR)/client.o $(O_DIR)/server.o $(SRV_TAR) $(CLI_TAR) $(DEPFILES)

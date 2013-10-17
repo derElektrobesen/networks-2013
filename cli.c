@@ -4,6 +4,8 @@
 #define m_alloc_s(type) (m_alloc(type, 1)) /* Allocate single obj */
 
 static struct active_queries_descr q_descr;
+static struct sockets_queue *socks;
+static const char *message = "Bakit zadrot!";
 
 static int process_timeouts() {
     struct active_queries *q = &(q_descr.q_head);
@@ -14,7 +16,7 @@ static int process_timeouts() {
             q->status = SRV_READY;
             /*
             i = --(q->pieces->cur_elem);
-            q->pieces->pieces[i] = q->fields.act_send_msg.piece_num; 
+            q->pieces->pieces[i] = q->fields.act_send_msg.piece_num;
             */
         }
         q = q->next;
@@ -31,8 +33,8 @@ static int process_distrib() {
         /* Send new requests to free active_queries */
         if (q->status == SRV_READY) {
             q->timeout = FILE_TIMEOUT;
-            /* 
-            q->fields.pack_num = (int)random(); 
+            /*
+            q->fields.pack_num = (int)random();
             i = q->pieces->cur_elem;
             q->fields.act_send_msg.piece_num = q->pieces->pieces[i];
             */
@@ -49,6 +51,17 @@ static int process_distrib() {
     return 0;
 }
 
+/* Функция рассылающая сообщения серверам в локальной сети */
+static int response_servers() {
+    int i;
+
+    /* TODO: Remove dummy actions */
+    for (i = 0; i < socks->count; i++)
+        send(socks->sockets[i], message, strlen(message), 0);
+
+    return 0;
+}
+
 /*
  * Обрабатывает список активных передач.
  */
@@ -57,9 +70,11 @@ static void main_handler(int sig) {
         process_timeouts();
         process_distrib();
     }
+    response_servers();
+    alarm(ALARM_DELAY);
 }
 
-int set_client_alarm() {
+int set_client_alarm(struct sockets_queue *q) {
 #ifndef DONT_DO_SRAND
     srandom(time(NULL));
 #else
@@ -71,13 +86,15 @@ int set_client_alarm() {
     q_descr.q_head.status = SRV_UNKN;
     q_descr.q_tail = NULL;
 
+    socks = q;
+
     alarm(ALARM_DELAY);
 
     return 0;
 }
 
 /*
-int recieve_file(const char *filename, int sock, 
+int recieve_file(const char *filename, int sock,
                  struct pieces_queue *pieces) {
     struct active_queries *q = m_alloc_s(struct active_queries *);
     q->srv_sock = sock;
@@ -93,3 +110,13 @@ int recieve_file(const char *filename, int sock,
     return 0;
 }
 */
+
+/*
+ * Callback-функция которая вызывается при получении сообщения клиентом.
+ * Обрабатывает сообщение полученное от сервера.
+ */
+int process_srv_message(int sock, const char *msg, ssize_t len) {
+    /* TODO: make server messages processing */
+    log(CLIENT, "Recieved from server %d: %s", sock, msg);
+    return 0;
+}

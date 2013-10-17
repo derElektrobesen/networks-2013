@@ -34,8 +34,6 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
         return init_server_err(sock, err_no);
     }
 
-    log(SERVER, "server created: %d", sock);
-
     if (bind(sock, (struct sockaddr *)addr, sizeof(*addr)) < 0) {
         err_n(SERVER, "bind failure");
         err_no = errno;
@@ -443,6 +441,8 @@ static int create_server(socket_callback callback) {
     if (srv_sock == -1)
         return -1;
 
+    log(SERVER, "server created: %d", srv_sock);
+
     recieve_messages(srv_sock, callback);
     close(srv_sock);
     return 0;
@@ -553,18 +553,15 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
  * с которыми клиент установил соединение.
  * Если соединений нет, то процесс засыпает на некоторое время.
  */
-static void *recieve_servers_messages(void *arg) {
+static int recieve_servers_messages(
+        socket_callback process_srv_msg_callback,
+        struct sockets_queue *q) {
     fd_set set;
     int i;
     int max_sock_fd;
     int broadcast_sock;
-    socket_callback callback;
-    struct sockets_queue *q;
     struct sockaddr_in broadcast_sock_addr;
-    void **args = arg;
-
-    callback = (socket_callback)(args[0]);
-    q = (struct sockets_queue *)(args[1]);
+    struct timeval timeout;
 
     broadcast_sock_addr.sin_family = AF_INET;
     broadcast_sock_addr.sin_port = htons(PORT);
@@ -572,7 +569,9 @@ static void *recieve_servers_messages(void *arg) {
 
     broadcast_sock = init_server(&broadcast_sock_addr, SOMAXCONN, SOCK_DGRAM);
     if (broadcast_sock == -1)
-        return NULL;
+        return 1;
+
+    log(CLIENT, "client created");
 
     while (1) {
         FD_ZERO(&set);
@@ -585,13 +584,15 @@ static void *recieve_servers_messages(void *arg) {
                 max_sock_fd = q->sockets[i];
         }
 
-        if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0) {
+        timeout.tv_sec = SHORT_TIMEOUT;
+
+        if (select(max_sock_fd + 1, &set, NULL, NULL, &timeout) > 0) {
             if (FD_ISSET(broadcast_sock, &set))
                 process_broadcast_servers(broadcast_sock, q);
-            recv_srv_msg(&set, q, callback);
+            recv_srv_msg(&set, q, process_srv_msg_callback);
         }
     }
-    return NULL;
+    return 0;
 }
 
 /**
@@ -612,24 +613,8 @@ int start_server(socket_callback process_cli_msg_callback) {
 
 /**
  * Функция создает клиента.
- * Процесс делится на 3 потока, один из которых
- * ожидает подключения серверов.
- * Второй поток получает сообщения от серверов
- * и обрабатывает их.
  */
-int start_client(socket_callback process_srv_msg_callback, server_answ_callback srv_answ) {
-    pthread_t srv_thread;
-    struct sockets_queue q = { .count = 0 };
-    int err;
-    void *args[] = { process_srv_msg_callback, &q };
-
-    err = pthread_create(&srv_thread, NULL, &recieve_servers_messages, args);
-    if (err != 0)
-        err_n(CLIENT, "pthread_create failure");
-
-    if (srv_answ)   /* Обработка ответа сервера */
-        srv_answ(&q);
-    else
-        err(CLIENT, "server answers can't be processed");
-    return 0;
+int start_client(socket_callback process_srv_msg_callback, struct sockets_queue *q) {
+    q->count = 0;
+    return recieve_servers_messages(process_srv_msg_callback, q);
 }

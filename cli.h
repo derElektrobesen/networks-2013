@@ -13,6 +13,7 @@
 
 #include "proto.h"
 #include "macro.h"
+#include "types.h"
 
 /* Defines */
 #define SRV_UNKN  0
@@ -36,14 +37,18 @@ struct active_queries_descr {
 
 /* Часть файла которую необходимо запросить */
 struct pieces_queue {
-    int max_piece_num;      /* Максимальный номер куска */
-    int cur_max_piece_num;  /* Максимальный номер куска в pieces*/
-    int cur_elem;           /* Минимальный индекс в pieces*/
+    int max_piece_num;      /**< Максимальный номер куска */
+    int cur_max_piece_num;  /**< Максимальный номер куска в pieces*/
+    int cur_elem;           /**< Минимальный индекс в pieces*/
     int pieces[MAX_PIECES_COUNT];
 };
 
 /* Functions prototypes */
-int set_client_alarm();     /*  */
+/* Устанавливает аларм на необходимые события */
+int set_client_alarm();
+/* Обрабатывает сообщение полученное от сервера */
+int process_srv_message(int sock, const char *msg, ssize_t len);
+
 /*
 int recieve_file(const char *filename);
 */
