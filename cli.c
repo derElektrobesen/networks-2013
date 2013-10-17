@@ -1,48 +1,51 @@
 #include "cli.h"
 
-static struct active_servers srv_head;
+#define m_alloc(type, count) ((type)malloc(sizeof(type) * (count)))
+#define m_alloc_s(type) (m_alloc(type, 1)) /* Allocate single obj */
+
+static struct active_queries_descr q_descr;
 
 static int process_timeouts() {
-    struct active_servers *srv = &srv_head;
+    struct active_queries *q = &(q_descr.q_head);
     /* int i; */
     do {
-        if (srv->status == SRV_BUSY && --(srv->timeout) == 0) {
+        if (q->status == SRV_BUSY && --(q->timeout) == 0) {
             /* Timeout came */
-            srv->status = SRV_READY;
+            q->status = SRV_READY;
             /*
-            i = --(srv->pieces->cur_elem);
-            srv->pieces->pieces[i] = srv->fields.act_send_msg.piece_num; 
+            i = --(q->pieces->cur_elem);
+            q->pieces->pieces[i] = q->fields.act_send_msg.piece_num; 
             */
         }
-        srv = srv->next;
-    } while (srv);
+        q = q->next;
+    } while (q);
     return 0;
 }
 
 static int process_distrib() {
-    struct active_servers *srv = &srv_head;
+    struct active_queries *q = &(q_descr.q_head);
     char msg[BUF_MAX_LEN];
     size_t msg_len;
     /* int i; */
     do {
-        /* Send new requests to free active_servers */
-        if (srv->status == SRV_READY) {
-            srv->timeout = FILE_TIMEOUT;
+        /* Send new requests to free active_queries */
+        if (q->status == SRV_READY) {
+            q->timeout = FILE_TIMEOUT;
             /* 
-            srv->fields.pack_num = (int)random(); 
-            i = srv->pieces->cur_elem;
-            srv->fields.act_send_msg.piece_num = srv->pieces->pieces[i];
+            q->fields.pack_num = (int)random(); 
+            i = q->pieces->cur_elem;
+            q->fields.act_send_msg.piece_num = q->pieces->pieces[i];
             */
-            msg_len = decode_msg(&(srv->fields), msg);
+            msg_len = decode_msg(&(q->fields), msg);
             if (msg_len <= 0) {
                 err(CLIENT, "Message decoding failure");
             } else {
-                (srv->pieces->cur_elem)++;
-                srv->status = SRV_BUSY;
-                send(srv->srv_sock, msg, msg_len, 0);
+                (q->pieces->cur_elem)++;
+                q->status = SRV_BUSY;
+                send(q->srv_sock, msg, msg_len, 0);
             }
         }
-    } while (srv);
+    } while (q);
     return 0;
 }
 
@@ -50,7 +53,7 @@ static int process_distrib() {
  * Обрабатывает список активных передач.
  */
 static void main_handler(int sig) {
-    if (srv_head.status != SRV_UNKN) {
+    if (q_descr.q_head.status != SRV_UNKN) {
         process_timeouts();
         process_distrib();
     }
@@ -64,14 +67,29 @@ int set_client_alarm() {
 #endif
     signal(SIGALRM, &main_handler);
 
-    srv_head.next = NULL;
-    srv_head.status = SRV_UNKN;
+    q_descr.q_head.next = NULL;
+    q_descr.q_head.status = SRV_UNKN;
+    q_descr.q_tail = NULL;
 
     alarm(ALARM_DELAY);
 
     return 0;
 }
 
-int recieve_file(const char *filename) {
+/*
+int recieve_file(const char *filename, int sock, 
+                 struct pieces_queue *pieces) {
+    struct active_queries *q = m_alloc_s(struct active_queries *);
+    q->srv_sock = sock;
+    q->timeout = FILE_TIMEOUT / ALARM_DELAY;
+    q->status = SRV_READY;
+    q->pieces = pieces;
+    if (q_descr.qtail)
+        q_descr.qtail->next = q;
+    else {
+        q_descr.q_tail = q;
+        q_descr.q_head.next = q;
+    }
     return 0;
 }
+*/

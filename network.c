@@ -228,31 +228,6 @@ inline static int prepare_broadcast_msg(char *msg, int max_len) {
     return snprintf(msg, max_len, "%s", IDENT_MSG);
 }
 
-static int wait_connection(struct sockaddr_in *addr, int srv_sock,
-        uint32_t *ignore_ips, int ips_count) {
-    char buf[BUF_MAX_LEN];
-    int flag = 0;
-    int i;
-    socklen_t addr_len = sizeof *addr;
-
-    log(CLIENT, "waiting connection");
-    while (!flag) {
-        if (recvfrom(srv_sock, buf, BUF_MAX_LEN, 0, (struct sockaddr *)addr, &addr_len) > 0) {
-            for (i = 0; !flag && i < ips_count; i++)
-                if (ignore_ips[i] == addr->sin_addr.s_addr)
-                    flag = 1;
-            if (flag) {
-                flag = 0;
-            } else {
-                log(BROADCAST, "detected connection with message: %s", buf);
-                if (check_detected_conn(buf, BUF_MAX_LEN) == 0)
-                    flag = 1;
-            }
-        }
-    }
-    return 0;
-}
-
 #ifndef USE_LOOPBACK
 /**
  * Функция возвращает количество найденных сетевых интерфейсов (IP адреса),
@@ -478,20 +453,14 @@ static int create_server(socket_callback callback) {
  */
 static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     char srv_ch_addr[INET_ADDRSTRLEN];
-    int s, rc, r = 0;
+    int s, r = 0;
 
     if (inet_ntop(AF_INET, &(srv_addr->sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
         log(BROADCAST, "accepted server: %s", srv_ch_addr);
         s = create_client(srv_ch_addr);
 
-        rc = pthread_rwlock_wrlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_wrlock");
-
         q->addrs[q->count] = srv_addr->sin_addr.s_addr;
         q->sockets[q->count++] = s;
-
-        rc = pthread_rwlock_unlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
     } else {
         err(BROADCAST, "inet_ntop failure");
         r = 1;
@@ -500,64 +469,49 @@ static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
 }
 
 /**
- * Функция ожидает широковещательного сообщения от сервера.
+ * Ф-ия обрабатывает входные broadcast сообщения.
+ * В случае обнаружения нового сервера, добавляет его в список.
+ * Возвращает 0 в случае успеха,
+ *            1 в случае loopback сервера
+ *            2 в случае, если соединение уже установлено
+ *            3 в случае других ошибок
  */
-static void *wait_servers(void *arg) {
-    struct sockaddr_in srv_addr;
-    struct sockaddr_in sock_addr;
-    struct sockets_queue *q = (struct sockets_queue *)arg;
-    int i, flag;
-    int srv_sock;
-    int rc;
-    uint32_t local_ips[MAX_INTERFACES_COUNT];
+static int process_broadcast_servers(int sock, struct sockets_queue *q) {
+    char buf[BUF_MAX_LEN];
+    int flag = 0;
+    int i;
+
+#ifndef USE_LOOPBACK
     int ips_count = 0;
-
-    log(CLIENT, "client broadcast thread created");
-
-    sock_addr.sin_family = AF_INET;
-    sock_addr.sin_port = htons(PORT);
-    sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    srv_sock = init_server(&sock_addr, SOMAXCONN, SOCK_DGRAM);
-    if (srv_sock == -1)
-        return NULL;
-
-#ifndef USE_LOOPBACK
-    ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
+    uint32_t local_ips[MAX_INTERFACES_COUNT];
 #endif
-    while (1) {
-        flag = 0;
-        wait_connection(&srv_addr, srv_sock, local_ips, ips_count);
 
+    struct sockaddr_in addr;
+    socklen_t addr_len = sizeof(addr);
+
+    if (recvfrom(sock, buf, BUF_MAX_LEN, 0, (struct sockaddr *)(&addr), &addr_len) > 0) {
 #ifndef USE_LOOPBACK
-        for (i = 0; !flag && i < ips_count; i++) {
-            if (srv_addr.sin_addr.s_addr == local_ips[i])
-                flag = 2;
-        }
-        if (!flag) {
+        /** Check detected connection for loopback */
         ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
-#endif
-        rc = pthread_rwlock_rdlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
-
-        for (i = 0; !flag && i < q->count; i++) {
-            if (srv_addr.sin_addr.s_addr == q->addrs[i])
+        for (i = 0; !flag && i < ips_count; i++)
+            if (local_ips[i] == addr.sin_addr.s_addr)
                 flag = 1;
-        }
-
-        rc = pthread_rwlock_unlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
-
-#ifndef USE_LOOPBACK
-        }
+        if (!flag)
 #endif
-        if (flag == 0)
-            accept_conn(q, &srv_addr);
-        else if (flag == 1)
-            log(BROADCAST, "connection is already established: pass");
-    }
-    close(srv_sock);
-    return NULL;
+        if (check_detected_conn(buf, BUF_MAX_LEN) == 0) {
+            /** Connection is ok. Check for already established conn */
+            for (i = 0; !flag && i < q->count; i++)
+                if (addr.sin_addr.s_addr == q->addrs[i])
+                    flag = 2;
+            if (!flag) {
+                flag = accept_conn(q, &addr);
+                if (flag)
+                    flag = 3; /** Another errors */
+            }
+        }
+    } else
+        flag = 3;
+    return flag;
 }
 
 /**
@@ -568,8 +522,6 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
     ssize_t bytes_read;
     char msg[BUF_MAX_LEN];
     int i, offset;
-    int rc;
-    int locked = 0;
 
     for (i = 0, offset = 0; i < q->count; i++) {
         if (offset) {
@@ -582,9 +534,6 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;
                 i--;
-                locked = 1;
-                rc = pthread_rwlock_wrlock(&(q->rwlock));
-                check_rwlock(CLIENT, rc, "pthread_rwlock_wrlock");
                 close(q->sockets[i]);
                 q->count--;
             } else {
@@ -596,10 +545,6 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
             }
         }
     }
-    if (locked) {
-        rc = pthread_rwlock_unlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
-    }
     return 0;
 }
 
@@ -610,23 +555,29 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
  */
 static void *recieve_servers_messages(void *arg) {
     fd_set set;
-    int rc, i;
+    int i;
     int max_sock_fd;
+    int broadcast_sock;
     socket_callback callback;
     struct sockets_queue *q;
+    struct sockaddr_in broadcast_sock_addr;
     void **args = arg;
 
     callback = (socket_callback)(args[0]);
     q = (struct sockets_queue *)(args[1]);
 
-    log(CLIENT, "server messages reciever thread created");
+    broadcast_sock_addr.sin_family = AF_INET;
+    broadcast_sock_addr.sin_port = htons(PORT);
+    broadcast_sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    broadcast_sock = init_server(&broadcast_sock_addr, SOMAXCONN, SOCK_DGRAM);
+    if (broadcast_sock == -1)
+        return NULL;
 
     while (1) {
         FD_ZERO(&set);
-        max_sock_fd = -1;
-
-        rc = pthread_rwlock_rdlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
+        FD_SET(broadcast_sock, &set);
+        max_sock_fd = broadcast_sock;
 
         for (i = 0; i < q->count; i++) {
             FD_SET(q->sockets[i], &set);
@@ -634,13 +585,10 @@ static void *recieve_servers_messages(void *arg) {
                 max_sock_fd = q->sockets[i];
         }
 
-        rc = pthread_rwlock_unlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
-        if (q->count == 0)
-            sleep(SHORT_TIMEOUT);
-        else {
-            if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0)
-                recv_srv_msg(&set, q, callback);
+        if (select(max_sock_fd + 1, &set, NULL, NULL, NULL) > 0) {
+            if (FD_ISSET(broadcast_sock, &set))
+                process_broadcast_servers(broadcast_sock, q);
+            recv_srv_msg(&set, q, callback);
         }
     }
     return NULL;
@@ -670,14 +618,10 @@ int start_server(socket_callback process_cli_msg_callback) {
  * и обрабатывает их.
  */
 int start_client(socket_callback process_srv_msg_callback, server_answ_callback srv_answ) {
-    pthread_t brc_thread, srv_thread;
-    struct sockets_queue q = { .rwlock = PTHREAD_RWLOCK_INITIALIZER };
+    pthread_t srv_thread;
+    struct sockets_queue q = { .count = 0 };
     int err;
     void *args[] = { process_srv_msg_callback, &q };
-
-    err = pthread_create(&brc_thread, NULL, &wait_servers, &q);
-    if (err != 0)
-        err_n(CLIENT, "pthread_create failure");
 
     err = pthread_create(&srv_thread, NULL, &recieve_servers_messages, args);
     if (err != 0)
@@ -687,6 +631,5 @@ int start_client(socket_callback process_srv_msg_callback, server_answ_callback 
         srv_answ(&q);
     else
         err(CLIENT, "server answers can't be processed");
-    pthread_rwlock_destroy(&(q.rwlock));
     return 0;
 }

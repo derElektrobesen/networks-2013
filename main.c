@@ -10,21 +10,14 @@ static const char *message = "Bakit zadrot!";
 
 /* Функция рассылающая сообщения серверам в локальной сети */
 int process_servers(struct sockets_queue *q) {
-    int rc, i;
+    int i;
 
     /* TODO: Remove dummy actions */
 
     while (1) {
-        rc = pthread_rwlock_rdlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_rdlock");
-                
         for (i = 0; i < q->count; i++) {
             send(q->sockets[i], message, strlen(message), 0);
         }
-
-        rc = pthread_rwlock_unlock(&(q->rwlock));
-        check_rwlock(CLIENT, rc, "pthread_rwlock_unlock");
-
         sleep(SHORT_TIMEOUT);
     }
 

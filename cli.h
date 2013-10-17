@@ -20,13 +20,18 @@
 #define SRV_BUSY  2
 
 /* Typedefs */
-struct active_servers {
+struct active_queries {
     int srv_sock;
     int timeout;
     unsigned short status;
     struct proto_fields fields;
     struct pieces_queue *pieces;
-    struct active_servers *next;
+    struct active_queries *next;
+};
+
+struct active_queries_descr {
+    struct active_queries q_head;
+    struct active_queries *q_tail;
 };
 
 /* Часть файла которую необходимо запросить */
@@ -39,6 +44,7 @@ struct pieces_queue {
 
 /* Functions prototypes */
 int set_client_alarm();     /*  */
+/*
 int recieve_file(const char *filename);
-
+*/
 #endif

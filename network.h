@@ -21,17 +21,15 @@
 #include "macro.h"
 
 /* Constants */
-#define MAX_CONNECTIONS         128
 #define SELECT_QUEUE_LEN        5
 #define MAX_INTERFACES_COUNT    16
 #define IDENT_MSG               "Dzhumagulov_Berezhnoy_IU_7_2013"
 
 /* Types */
 struct sockets_queue {
-    int sockets[MAX_CONNECTIONS];       ///< Массив сокетов
-    in_addr_t addrs[MAX_CONNECTIONS];   ///< Массив активных подключений
-    int count;                          ///< Число акивных подключений
-    pthread_rwlock_t rwlock;            ///< Блокировка чтения/записи
+    int sockets[MAX_CONNECTIONS];       /*< Массив сокетов              */
+    in_addr_t addrs[MAX_CONNECTIONS];   /*< Массив активных подключений */
+    int count;                          /*< Число акивных подключений   */
 };
 
 typedef int (*socket_callback)(int sender_sock, 
