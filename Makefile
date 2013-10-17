@@ -1,7 +1,7 @@
 CC = gcc
 
 CFLAGS = -Wall
-FLAGS = -pthread -lpthread -D_MULTI_THREADED -lssl -lcrypto
+FLAGS = -pthread -lpthread -D_MULTI_THREADED -lssl -lcrypto -MMD
 
 SRV = SRV
 CLI = CLI
@@ -42,11 +42,15 @@ CLI_OBJS = $(CLI_SRCS:%.c=$(O_DIR)/%.o)
 
 PARAMS = $(FLAGS) $(CFLAGS) $(DEFS)
 
-$(O_DIR)/%.o: %.c
-	mkdir -p $(O_DIR)
-	$(CC) $(PARAMS) -c $^ -o $@
+.PHONY: all clean
 
 all: srv cli
+
+pre-build:
+	mkdir -p $(O_DIR)
+
+$(O_DIR)/%.o: %.c
+	$(CC) $(PARAMS) -c $< -o $@
 
 srv: $(GLOBAL_OBJS) $(SRV_OBJS)
 	$(CC) $(PARAMS) -D$(SRV) -c main.c -o $(O_DIR)/server.o
@@ -56,4 +60,6 @@ cli: $(GLOBAL_OBJS) $(CLI_OBJS)
 	$(CC) $(PARAMS) -D$(CLI) $(O_DIR)/client.o $(GLOBAL_OBJS) $(CLI_OBJS) -o $(CLI_TAR)
 
 clean:
-	rm -f $(GLOBAL_OBJS) $(SRV_OBJS) $(CLI_OBJS) $(O_DIR)/client.o $(O_DIR)/server.o $(SRV_TAR) $(CLI_TAR) $(DEPFILES)
+	rm -f $(O_DIR)/* $(SRV_TAR) $(CLI_TAR)
+
+-include $(O_DIR)/*.d
