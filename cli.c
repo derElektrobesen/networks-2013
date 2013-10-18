@@ -4,7 +4,6 @@
 #define m_alloc_s(type) (m_alloc(type, 1)) /* Allocate single obj */
 
 static struct active_queries_descr q_descr;
-static struct sockets_queue *socks;
 static const char *message = "Bakit zadrot!";
 
 static int process_timeouts() {
@@ -52,12 +51,12 @@ static int process_distrib() {
 }
 
 /* Функция рассылающая сообщения серверам в локальной сети */
-static int response_servers() {
+static int response_servers(struct sockets_queue *q) {
     int i;
 
     /* TODO: Remove dummy actions */
-    for (i = 0; i < socks->count; i++)
-        send(socks->sockets[i], message, strlen(message), 0);
+    for (i = 0; i < q->count; i++)
+        send(q->sockets[i], message, strlen(message), 0);
 
     return 0;
 }
@@ -65,32 +64,12 @@ static int response_servers() {
 /*
  * Обрабатывает список активных передач.
  */
-static void main_handler(int sig) {
+void main_dispatcher(struct sockets_queue *q) {
     if (q_descr.q_head.status != SRV_UNKN) {
         process_timeouts();
         process_distrib();
     }
-    response_servers();
-    alarm(ALARM_DELAY);
-}
-
-int set_client_alarm(struct sockets_queue *q) {
-#ifndef DONT_DO_SRAND
-    srandom(time(NULL));
-#else
-    srandom(1);
-#endif
-    signal(SIGALRM, &main_handler);
-
-    q_descr.q_head.next = NULL;
-    q_descr.q_head.status = SRV_UNKN;
-    q_descr.q_tail = NULL;
-
-    socks = q;
-
-    alarm(ALARM_DELAY);
-
-    return 0;
+    response_servers(q);
 }
 
 /*

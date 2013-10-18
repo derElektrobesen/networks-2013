@@ -44,10 +44,10 @@ struct pieces_queue {
 };
 
 /* Functions prototypes */
-/* Устанавливает аларм на необходимые события */
-int set_client_alarm();
 /* Обрабатывает сообщение полученное от сервера */
 int process_srv_message(int sock, const char *msg, ssize_t len);
+/* Основной диспетчер */
+void main_dispatcher(struct sockets_queue *q);
 
 /*
 int recieve_file(const char *filename);

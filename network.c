@@ -555,13 +555,16 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
  */
 static int recieve_servers_messages(
         socket_callback process_srv_msg_callback,
+        queue_dispatcher dispatcher,
         struct sockets_queue *q) {
     fd_set set;
     int i;
     int max_sock_fd;
     int broadcast_sock;
     struct sockaddr_in broadcast_sock_addr;
-    struct timeval timeout;
+    struct timeval timeout = {
+        .tv_sec = ALARM_DELAY
+    };
 
     broadcast_sock_addr.sin_family = AF_INET;
     broadcast_sock_addr.sin_port = htons(PORT);
@@ -584,12 +587,16 @@ static int recieve_servers_messages(
                 max_sock_fd = q->sockets[i];
         }
 
-        timeout.tv_sec = SHORT_TIMEOUT;
-
-        if (select(max_sock_fd + 1, &set, NULL, NULL, &timeout) > 0) {
+        if (select(max_sock_fd + 1, &set, NULL, NULL, dispatcher ? &timeout : NULL) > 0) {
             if (FD_ISSET(broadcast_sock, &set))
                 process_broadcast_servers(broadcast_sock, q);
             recv_srv_msg(&set, q, process_srv_msg_callback);
+        }
+
+        if (dispatcher && timeout.tv_sec == 0 && timeout.tv_usec == 0) {
+            /* Timeout came */
+            timeout.tv_sec = ALARM_DELAY;
+            dispatcher(q);
         }
     }
     return 0;
@@ -614,7 +621,9 @@ int start_server(socket_callback process_cli_msg_callback) {
 /**
  * Функция создает клиента.
  */
-int start_client(socket_callback process_srv_msg_callback, struct sockets_queue *q) {
+int start_client(socket_callback process_srv_msg_callback,
+        queue_dispatcher dispatcher,
+        struct sockets_queue *q) {
     q->count = 0;
-    return recieve_servers_messages(process_srv_msg_callback, q);
+    return recieve_servers_messages(process_srv_msg_callback, dispatcher, q);
 }

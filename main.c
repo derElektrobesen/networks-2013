@@ -5,8 +5,7 @@
 
 int main(int argc, char **argv) {
     struct sockets_queue q;
-    set_client_alarm(&q);
-    return start_client(&process_srv_message, &q);
+    return start_client(&process_srv_message, &main_dispatcher, &q);
 }
 
 #elif defined SRV

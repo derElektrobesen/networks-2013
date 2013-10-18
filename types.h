@@ -10,4 +10,6 @@ struct sockets_queue {
     int count;                          /*< Число акивных подключений   */
 };
 
+typedef void (*queue_dispatcher)(struct sockets_queue *q);
+
 #endif

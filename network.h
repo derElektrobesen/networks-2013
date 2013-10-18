@@ -33,6 +33,6 @@ typedef int (*server_response_callback)(struct sockets_queue *queue);
 /* Prototypes */
 int start_server(socket_callback process_cli_msg_callback);
 int start_client(socket_callback process_srv_msg_callback,
-        struct sockets_queue *q);
+        queue_dispatcher dispatcher, struct sockets_queue *q);
 
 #endif
