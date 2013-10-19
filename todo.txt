@@ -1,7 +1,9 @@
 1. Чтение конфиг файла
 2. Протокол обмена
-    proto\0pack-id\0len\0piece_num\0file_num\data
-                        BUF_MAX_LEN_TSIZE
+client:    error\0pack-id\0piece_num\0\hash\0file_name
+
+server:    error\0pack-id\0piece_num\0piece_len\0\hash\0file_name\0data
+    
     pack-id:Ключ, однозначно идентифицирующий клиентов (num) (2 bytes)
     len:    Длина data (4 bytes)
     action: 3 bytes
@@ -60,6 +62,7 @@
 6. Возможные события клиента
     Посылка запроса на получение файла
         Передается имя файла
+        Передается хэш-сумма
         Сравнение всех хэш-сумм
         Присвоение файлу номера заданного сервером
 

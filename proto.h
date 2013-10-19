@@ -11,26 +11,28 @@
 #include "macro.h"
 
 typedef unsigned int pack_id_t;
-#define PACK_ID_LENGTH sizeof(pack_id_t)
+#define PACK_ID_TSIZE sizeof(pack_id_t)
 typedef unsigned int piece_num_t;
-#define PIECE_NUM_LENGTH sizeof(piece_num_t)
+#define PIECE_NUM_TSIZE sizeof(piece_num_t)
 typedef unsigned int file_num_t;
-#define FILE_NUM_LENGTH sizeof(file_num_t)
+#define FILE_NUM_TSIZE sizeof(file_num_t)
 typedef unsigned int piece_len_t;
 #define PIECE_LEN_TSIZE sizeof(piece_len_t)
+typedef unsigned short perror_t;
+#define PROTOCOL_ERROR_TSIZE sizeof(perror_t)
 
 
 struct cli_fields {
     pack_id_t pack_id;
     piece_num_t piece_num;
-    int piece_len;
-    unsigned short error;
+    perror_t error;
     char file_name[FILE_NAME_MAX_LEN];
     unsigned char hsumm[MD5_DIGEST_LENGTH];
 };
 
 struct srv_fields {
-    struct cli_fields;
+    struct cli_fields cli_field;
+    piece_len_t piece_len;
     unsigned char piece[BUF_MAX_LEN - sizeof(struct cli_fields)];
 };
 
