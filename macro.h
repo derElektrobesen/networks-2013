@@ -27,8 +27,6 @@
 
 #   define err_n(cli, f_str, args...) \
         err(cli, f_str " : %s", ##args, strerror(errno)) /* \n don't needed */
-#   define check_rwlock(cli, rc, fname) \
-        rc == 0 ? 0 : err_n(cli, fname " failure");
 
 #else  /* DEBUG is undefined */
 #   define log(...)
@@ -36,5 +34,8 @@
 #   define err_n(...)
 #   define check_rwlock(...)
 #endif /* DEBUG */
+
+#define m_alloc(type, count) ((type)malloc(sizeof(type) * (count)))
+#define m_alloc_s(type) (m_alloc(type, 1)) /* Allocate single obj */
 
 #endif
