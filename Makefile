@@ -23,6 +23,7 @@ DEFINES =   DEBUG \
 			MAX_PACK_NUM=1000000 \
 			MAX_PACK_NUM_LEN=7 \
 			MAX_CONNECTIONS=128 \
+			MAX_TRANSMISSIONS=128 \
 			USE_LOOPBACK \
 			DONT_DO_SRAND
 
@@ -44,7 +45,7 @@ PARAMS = $(FLAGS) $(CFLAGS) $(DEFS)
 
 .PHONY: all clean
 
-all: srv cli
+all: pre-build srv cli
 
 pre-build:
 	mkdir -p $(O_DIR)
