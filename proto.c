@@ -26,20 +26,56 @@ int get_hash(struct proto_fields *fields, unsigned char *md5digest) {
     return 0;
 }
 
+unsigned int get_hex(char *msg, int n) {
+    unsigned int result = 0;
+    for (int i = 0; i < n; i++) {
+        result << 8;
+        result |= (unsigned char)msg[i];
+    }
+    return result;
+}
+
 /**
- *
+ * Заполнение структуры proto_fields
  */
-int encode_msg(struct proto_fields *fields, char *msg) {
+int encode_msg(struct proto_fields *fields, const char *msg) {
     unsigned char hash_msg[MD5_DIGEST_LENGTH];
+    int i;
+    unsigned int buf;
+    char *p;
 
-    /* Fields filling */
-    /*
-    fields->pack_num = 0;
-    fields->action_type = 0;
-    fields->act_send_msg.piece_num = 0;
-    fields->msg_len = strlen(msg);
-    */
+    if (fields == NULL) {
+        err(OTHER, "incorrect protocol");
+        return -1;
+    }
 
+    
+    if (fields->action_type == ACT_DOWNLOAD_MSG) {
+        p = &msg;
+        /* Packet id */
+        fields->pack_id = get_hex(p, 4);
+        
+        /* Message length */
+        p += 5;
+        fields->msg_len = get_hex(p, 4);
+
+        /* Protocol bits */
+        p += 5;
+        fields->data_bits = *p++;//set_bit(0, 4);  // or = 16
+        fields->action_bits = *p++;//set_bit(0, 0); // or = 1
+        fields->error_bits = *p++;
+        
+        /* Data */
+        fields->act_download_piece->piece_num = get_hex(p, 4);
+        fields->act_download_piece->file_num = get_hex(p+=4, 4);
+        for (i = 0, p++; i < MD5_DIGEST_LENGTH; i++, p++)
+            fields->act_download_piece->sump[i] = *p;
+    }
+
+    
+    
+    
+    
     get_hash(fields, hash_msg);
     if (hash_msg == NULL) {
         err_n(SERVER, "get hash failure");
@@ -50,7 +86,7 @@ int encode_msg(struct proto_fields *fields, char *msg) {
     return 0;
 }
 
-size_t decode_msg(const struct proto_fields *fields, const char *msg) {
+size_t decode_msg(const struct proto_fields *fields,  char *msg) {
     /* 1) Read fields
      * 2) Decoding message
      * 3) return msg_len
