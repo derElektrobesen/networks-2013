@@ -24,7 +24,12 @@
 
 typedef unsigned int pack_id_t;
 #define PACK_ID_LENGTH sizeof(pack_id_t)
+typedef unsigned int piece_num_t;
+#define PIECE_NUM_LENGTH sizeof(piece_num_t)
+typedef unsigned int file_num_t;
+#define FILE_NUM_LENGTH sizeof(file_num_t)
 
+#define PROTO_ACTION_TSIZE 4
 
 struct proto_fields {
     pack_id_t pack_id;
@@ -33,8 +38,8 @@ struct proto_fields {
     union {
         /* Запрос клиента на скачивание файла */
         struct {
-            unsigned int piece_num;
-            unsigned int file_num;
+            piece_num_t piece_num;
+            file_num_t file_num;
             unsigned char sum[MD5_DIGEST_LENGTH];
         } act_download_piece;
         /* Ответ сервера на запрос на скачивание файла */
@@ -57,7 +62,7 @@ struct proto_fields {
     };
 };
 
-int encode_msg(struct proto_fields *fields, char *msg);
-size_t decode_msg(const struct proto_fields *fields, const char *msg);
+int encode_msg(struct proto_fields *fields, const char *msg);
+size_t decode_msg(const struct proto_fields *fields, char *msg);
 
 #endif

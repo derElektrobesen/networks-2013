@@ -1,6 +1,7 @@
 1. Чтение конфиг файла
 2. Протокол обмена
-    pack-id\0len\0proto\0data
+    proto\0pack-id\0len\0piece_num\0file_num\data
+                        BUF_MAX_LEN_TSIZE
     pack-id:Ключ, однозначно идентифицирующий клиентов (num) (2 bytes)
     len:    Длина data (4 bytes)
     action: 3 bytes

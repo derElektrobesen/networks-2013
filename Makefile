@@ -17,12 +17,11 @@ DEFINES =   DEBUG \
 			ALARM_DELAY=1 \
 			FILE_TIMEOUT=3 \
 			BUF_MAX_LEN=16384 \
-            BUF_MAX_LEN=4 \
+            BUF_MAX_LEN_TSIZE=4 \
 			CONTROL_INFO_LEN=32 \
 			FILE_NAME_MAX_LEN=4096 \
 			MAX_PIECES_COUNT=10000 \
 			MAX_PACK_NUM=1000000 \
-            PACK_ID_SIZE=4 \
 			MAX_PACK_NUM_LEN=7 \
 			MAX_CONNECTIONS=128 \
             USE_LOOPBACK \
@@ -45,7 +44,7 @@ PARAMS = $(FLAGS) $(CFLAGS) $(DEFS)
 
 .PHONY: all clean
 
-all: srv cli
+all: pre-build srv cli
 
 pre-build:
 	mkdir -p $(O_DIR)
