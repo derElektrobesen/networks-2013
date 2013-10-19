@@ -15,13 +15,21 @@
 #define ACT_SEARCH_FILE         3
 #define ACT_SEARCH_FILE_ANSW    4
 
+#ifdef PROTO_DIVIDER
+#   define DIVIDER_LENGTH 1
+#else 
+#   define DIVIDER_LENGTH 0
+#endif
+
+
+typedef unsigned int pack_id_t;
+#define PACK_ID_LENGTH sizeof(pack_id_t)
+
+
 struct proto_fields {
-    unsigned int pack_id;
+    pack_id_t pack_id;
     unsigned int action_type;
     unsigned int msg_len;
-    unsigned char data_bits;
-    unsigned char action_bits;
-    unsigned char error_bits;
     union {
         /* Запрос клиента на скачивание файла */
         struct {
