@@ -17,6 +17,7 @@ DEFINES =   DEBUG \
 			ALARM_DELAY=1 \
 			FILE_TIMEOUT=3 \
 			BUF_MAX_LEN=16384 \
+            BUF_MAX_LEN_TSIZE=4 \
 			CONTROL_INFO_LEN=32 \
 			FILE_NAME_MAX_LEN=4096 \
 			MAX_PIECES_COUNT=10000 \
@@ -24,8 +25,8 @@ DEFINES =   DEBUG \
 			MAX_PACK_NUM_LEN=7 \
 			MAX_CONNECTIONS=128 \
 			MAX_TRANSMISSIONS=128 \
-			USE_LOOPBACK \
-			DONT_DO_SRAND
+			DONT_DO_SRAND \
+            USE_LOOPBACK \
 
 # Unused macro defs
 # PRINT_LINES
@@ -48,7 +49,7 @@ PARAMS = $(FLAGS) $(CFLAGS) $(DEFS)
 all: pre-build srv cli
 
 pre-build:
-	mkdir -p $(O_DIR)
+	@-mkdir -p $(O_DIR)
 
 $(O_DIR)/%.o: %.c
 	$(CC) $(PARAMS) -c $< -o $@
