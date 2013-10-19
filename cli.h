@@ -16,23 +16,44 @@
 #include "types.h"
 
 /* Defines */
-#define SRV_UNKN  0
-#define SRV_READY 1
-#define SRV_BUSY  2
+#define SRV_UNKN                0   /**< Сервер недоступен      */
+#define SRV_READY               1   /**< Сервер готов к передаче*/
+#define SRV_BUSY                2   /**< Сервер занят           */
+
+#define TRM_WAITING_SERVERS     0   /**< Ожидание серверов      */
+#define TRM_OBTAINING           1   /**< Получение файла        */
+#define TRM_COMPLETED           2   /**< Передача завуершена    */
+#define TRM_UNKN                3   /**< Ошибка при передаче    */
+
+#define TRME_TOO_MANY_TRM      -1   /**< Слишком много передач  */
+#define TRME_DECODE_ERR        -2   /**< Ошибка при создании    */
+                                    /**< сообщения              */
+#define TRME_SOCKET_FAILURE    -3   /**< Возникла ошибка на     */
+                                    /**< сокете                 */
+#define TRME_NO_ACTIVE_SRVS    -4   /**< Ни один сервер не смог */
+                                    /**< получить запрос на     */
+                                    /**< передачу               */
 
 /* Typedefs */
-struct active_queries {
+
+/**
+ * Представляет собой элемент списка, хранящего
+ * все ожидающие тикета события
+ */
+struct active_query {
     int srv_sock;
     int timeout;
-    unsigned short status;
-    struct proto_fields fields;
-    struct pieces_queue *pieces;
-    struct active_queries *next;
+    int transmission_id;
+    int status;
+    struct active_query *next;
 };
 
-struct active_queries_descr {
-    struct active_queries q_head;
-    struct active_queries *q_tail;
+/**
+ * Список всех событий ожидающих тикета
+ */
+struct active_queries {
+    struct active_query *q_head;
+    struct active_query *q_tail;
 };
 
 /* Часть файла которую необходимо запросить */
@@ -43,13 +64,34 @@ struct pieces_queue {
     int pieces[MAX_PIECES_COUNT];
 };
 
+/**
+ * Структура определяет одну активную передачу
+ */
+struct transmission {
+    char filename[FILE_NAME_MAX_LEN];
+    unsigned char filesum[MD5_DIGEST_LENGTH];
+    unsigned short status;
+    struct pieces_queue pieces;
+
+    /* TODO: Добавить список активных для данной передачи серверов */
+};
+
+/**
+ * Структура описывает список всех активных передач
+ */
+struct transmissions {
+    struct transmission trm[MAX_TRANSMISSIONS];
+    int count;
+};
+
+
 /* Functions prototypes */
 /* Обрабатывает сообщение полученное от сервера */
 int process_srv_message(int sock, const char *msg, ssize_t len);
 /* Основной диспетчер */
-void main_dispatcher(struct sockets_queue *q);
+void main_dispatcher(const struct sockets_queue *q);
+/* Запускает посылку файла */
+int recieve_file(const char *filename, const unsigned char *hsum,
+        const struct sockets_queue *q);
 
-/*
-int recieve_file(const char *filename);
-*/
 #endif
