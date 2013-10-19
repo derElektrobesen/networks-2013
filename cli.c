@@ -28,9 +28,10 @@ static int response_servers(const struct sockets_queue *q) {
  * В случае ошибки возвращает код ошибки (< 0)
  */
 static int add_transmission(const char *filename, 
-        const unsigned char *filesum) {
+        const unsigned char *filesum, unsigned long file_size) {
     struct transmissions *t = &t_descr;
     struct transmission *trm;
+    struct pieces_queue *q;
     int r = 0;
     
     if (t->count >= MAX_TRANSMISSIONS) {
@@ -43,6 +44,13 @@ static int add_transmission(const char *filename,
         strncpy(trm->filename, filename, FILE_NAME_MAX_LEN);
         memcpy(trm->filesum, filesum, MD5_DIGEST_LENGTH);
         trm->status = TRM_WAITING_SERVERS;
+
+        q = trm->pieces;
+        q->cur_max_piece = -1;
+        q->cur_elem = 0;
+        q->max_piece_num = file_size / BUF_MAX_LEN;
+        if (file_size != q->max_piece_num * BUF_MAX_LEN)
+            q->max_piece_num++;
     }
     return r;
 }
@@ -90,10 +98,13 @@ static int require_piece(struct cli_fields *f, int transmission_id,
             q->transmission_id = transmission_id;
             q->status = SRV_BUSY;
             q->next = NULL;
+            q->prev = NULL;
             if (!queue->q_head)
                 queue->q_head = q;
-            if (queue->q_tail)
+            if (queue->q_tail) {
                 queue->q_tail->next = q;
+                q->prev = queue->q_tail;
+            }
             queue->q_tail = q;
         }
     }

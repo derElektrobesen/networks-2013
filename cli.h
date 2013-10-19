@@ -36,20 +36,17 @@
 
 /* Typedefs */
 
-/**
- * Представляет собой элемент списка, хранящего
- * все ожидающие тикета события
- */
 struct active_query {
     int srv_sock;
     int timeout;
     int transmission_id;
     int status;
     struct active_query *next;
+    struct active_query *prev;
 };
 
 /**
- * Список всех событий ожидающих тикета
+ * Список всех активных соединений
  */
 struct active_queries {
     struct active_query *q_head;
@@ -58,10 +55,10 @@ struct active_queries {
 
 /* Часть файла которую необходимо запросить */
 struct pieces_queue {
-    int max_piece_num;      /**< Максимальный номер куска */
-    int cur_max_piece_num;  /**< Максимальный номер куска в pieces*/
-    int cur_elem;           /**< Минимальный индекс в pieces*/
-    int pieces[MAX_PIECES_COUNT];
+    unsigned long max_piece_num;    /**< Максимальный номер куска */
+    unsigned long cur_max_piece_num;/**< Максимальный номер куска в pieces*/
+    unsigned long cur_elem;         /**< Минимальный индекс в pieces */
+    unsigned long pieces[MAX_PIECES_COUNT];
 };
 
 /**
