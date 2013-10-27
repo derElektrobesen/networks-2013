@@ -596,7 +596,7 @@ static int recieve_servers_messages(
         if (dispatcher && timeout.tv_sec == 0 && timeout.tv_usec == 0) {
             /* Timeout came */
             timeout.tv_sec = ALARM_DELAY;
-            dispatcher(q);
+            dispatcher();
         }
     }
     return 0;

@@ -1,25 +1,103 @@
 #include "cli.h"
 
-#define m_alloc(type, count) ((type)malloc(sizeof(type) * (count)))
-#define m_alloc_s(type) (m_alloc(type, 1)) /* Allocate single obj */
-
-static struct active_queries q_descr = {
+static struct active_connections q_descr = {
     .q_head = NULL,
     .q_tail = NULL
 };
 static struct transmissions t_descr = { .count = 0 };
 
-static int process_timeouts() {
-    return 0;
+
+/**
+ * Функция отправляет запрос на получение куска файла
+ * В случае ошибки, ф-ия возвращает ее код который можно
+ * интерпретировать с помощью TRME_* флагов,
+ * иначе -- 0
+ */
+static int require_piece(struct cli_fields *f, struct active_connection *con) {
+    char msg[BUF_MAX_LEN];
+    ssize_t msg_len;
+    int r = 0;
+
+    f->pack_id = rand() % MAX_PACK_NUM;
+    con->status = SRV_READY;
+    con->piece_id = f->piece_num;
+
+    msg_len = decode_cli_msg(f, msg);
+    if (msg_len <= 0) {
+        err(CLIENT, "decode message error");
+        r = TRME_DECODE_ERR;
+    } else {
+        if (send(con->srv_sock, msg, msg_len, 0) < 0) {
+            err_n(CLIENT, "send failure");
+            r = TRME_SOCKET_FAILURE;
+            con->status = SRV_UNKN;
+        } else {
+            con->status = SRV_BUSY;
+            con->timeout = FILE_TIMEOUT;
+        }
+    }
+    return r;
 }
 
-static int process_distrib() {
-    return 0;
+/**
+ * Ф-ия обрабатывает переданный ей элемент на предмет истечения
+ * времени ожидания.
+ */
+static int process_timeouts(struct active_connection *con) {
+    struct pieces_queue *q;
+    int r = 0;
+    if (con->timeout-- <= 0) {
+        r = 1;
+        con->status = TRM_UNKN;
+        q = &((t_descr.trm + con->transmission_id)->pieces);
+        if (con->piece_id == q->cur_piece - 1)
+            q->cur_piece--;
+        else if (q->max_failed_piece_num >= MAX_PIECES_COUNT) {
+            if (q->cur_piece > con->piece_id)
+                q->cur_piece = con->piece_id;
+        } else
+            q->failed_pieces[q->max_failed_piece_num++] = q->cur_piece;
+    }
+    return r;
 }
 
-/* Функция рассылающая сообщения серверам в локальной сети */
-static int response_servers(const struct sockets_queue *q) {
-    return 0;
+/**
+ * Ф-ия запрашивает очередной кусок
+ */
+static void request_piece(struct active_connection *con) {
+    struct pieces_queue *q;
+    struct transmission *t;
+    struct cli_fields f;
+    piece_num_t piece;
+
+    if (con->status == SRV_READY) {
+        t = t_descr.trm + con->transmission_id;
+        q = &(t->pieces);
+        if (q->max_failed_piece_num >= 0)
+            piece = q->failed_pieces[--q->max_failed_piece_num];
+        else
+            piece = q->cur_piece++;
+
+        if (piece > q->max_piece_num) {
+            /* Файл полностью передан */
+            if (con->next)
+                con->next->prev = con->prev;
+            else
+                q_descr.q_tail = con->prev;
+            if (con->prev)
+                con->prev->next = con->next;
+            else
+                q_descr.q_head = con->next;
+            free(con);
+        } else {
+            f.piece_num = piece;
+            strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
+            memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
+
+            /* TODO: Обработать ошибки */
+            require_piece(&f, con);
+        }
+    }
 }
 
 /**
@@ -45,9 +123,9 @@ static int add_transmission(const char *filename,
         memcpy(trm->filesum, filesum, MD5_DIGEST_LENGTH);
         trm->status = TRM_WAITING_SERVERS;
 
-        q = trm->pieces;
-        q->cur_max_piece = -1;
-        q->cur_elem = 0;
+        q = &trm->pieces;
+        q->max_failed_piece_num = -1;
+        q->cur_piece = 0;
         q->max_piece_num = file_size / BUF_MAX_LEN;
         if (file_size != q->max_piece_num * BUF_MAX_LEN)
             q->max_piece_num++;
@@ -67,48 +145,31 @@ static void remove_transmission(int tr_id) {
 }
 
 /**
- * Функция отправляет запрос на получение куска файла
- * В случае ошибки, ф-ия возвращает ее код который можно
- * интерпретировать с помощью TRME_* флагов,
- * иначе -- 0
+ * Ф-ия добавляет соединение с сервером для передачи файла
  */
-static int require_piece(struct cli_fields *f, int transmission_id,
-        piece_num_t piece_id, int sock) {
-    struct active_query *q;
-    struct active_queries *queue = &q_descr;
-    char msg[BUF_MAX_LEN];
-    ssize_t msg_len;
-    int r = 0;
+static struct active_connection *add_connection(int sock, 
+        int transmission_id, piece_num_t piece_id) {
+    struct active_connection *q;
 
-    f->pack_id = rand() % MAX_PACK_NUM;
-    f->piece_num = piece_id;
-
-    msg_len = decode_cli_msg(f, msg);
-    if (msg_len <= 0) {
-        err(CLIENT, "decode message error");
-        r = TRME_DECODE_ERR;
-    } else {
-        if (send(sock, msg, msg_len, 0) < 0) {
-            err_n(CLIENT, "send failure");
-            r = TRME_SOCKET_FAILURE;
-        } else {
-            q = m_alloc_s(struct active_query *);
-            q->srv_sock = sock;
-            q->timeout = FILE_TIMEOUT;
-            q->transmission_id = transmission_id;
-            q->status = SRV_BUSY;
-            q->next = NULL;
-            q->prev = NULL;
-            if (!queue->q_head)
-                queue->q_head = q;
-            if (queue->q_tail) {
-                queue->q_tail->next = q;
-                q->prev = queue->q_tail;
-            }
-            queue->q_tail = q;
+    q = m_alloc_s(struct active_connection *);
+    if (q) {
+        q->srv_sock = sock;
+        q->timeout = FILE_TIMEOUT;
+        q->transmission_id = transmission_id;
+        q->status = SRV_BUSY;
+        q->piece_id = piece_id;
+        q->next = NULL;
+        q->prev = NULL;
+        if (!q_descr.q_head)
+            q_descr.q_head = q;
+        if (q_descr.q_tail) {
+            q_descr.q_tail->next = q;
+            q->prev = q_descr.q_tail;
         }
-    }
-    return r;
+        q_descr.q_tail = q;
+    } else
+        err_n(CLIENT, "m_alloc_s failure");
+    return q;
 }
 
 /**
@@ -121,19 +182,27 @@ static int start_transmission(int transmission_id,
         const struct sockets_queue *q) {
     int i, req_count;
     int r = 0;
+    struct active_connection *con;
     struct transmission *t = t_descr.trm + transmission_id;
     struct cli_fields f = { .error = 0 };
 
     strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
     memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
-    for (i = 0, req_count = 0; i < q->count; i++) {
-        if (require_piece(&f, transmission_id,  i, q->sockets[i]) == 0)
-            req_count++;
+    for (i = 0, req_count = 0; i < q->count && i < t->pieces.max_piece_num; i++) {
+        con = add_connection(q->sockets[i], transmission_id, i);
+        if (con) {
+            f.piece_num = i;
+            /* TODO: Обработать исключительные ситуации */
+            if (require_piece(&f, con) == 0) {
+                req_count++;
+                t->pieces.cur_piece++;
+            }
+        }
     }
     if (!req_count) {
         r = TRME_NO_ACTIVE_SRVS;
-        err(CLIENT, "no active servers found for start transmission");
+        err(CLIENT, "no active servers found to start transmission");
     }
     return r;
 }
@@ -145,9 +214,9 @@ static int start_transmission(int transmission_id,
  * интерпретировать с помощью TRME_* флагов
  */
 int recieve_file(const char *filename, const unsigned char *hsum,
-        const struct sockets_queue *q) {
+        unsigned long fsize, const struct sockets_queue *q) {
     int tr_no, r;
-    tr_no = add_transmission(filename, hsum);
+    tr_no = add_transmission(filename, hsum, fsize);
     r = tr_no;
     if (tr_no >= 0) {
         r = start_transmission(tr_no, q);
@@ -162,12 +231,13 @@ int recieve_file(const char *filename, const unsigned char *hsum,
 /*
  * Обрабатывает список активных передач.
  */
-void main_dispatcher(const struct sockets_queue *q) {
-    if (q_descr.q_head) {
-        process_timeouts();
-        process_distrib();
+void main_dispatcher() {
+    struct active_connection *cur;
+    cur = q_descr.q_head;
+    while (cur) {
+        process_timeouts(cur);
+        request_piece(cur);
     }
-    response_servers(q);
 }
 
 /**
