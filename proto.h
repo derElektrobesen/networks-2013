@@ -12,10 +12,10 @@
 
 typedef unsigned int pack_id_t;
 #define PACK_ID_TSIZE sizeof(pack_id_t)
-typedef unsigned int piece_num_t;
-#define PIECE_NUM_TSIZE sizeof(piece_num_t)
-typedef unsigned int file_num_t;
-#define FILE_NUM_TSIZE sizeof(file_num_t)
+typedef unsigned int piece_id_t;
+#define PIECE_NUM_TSIZE sizeof(piece_id_t)
+typedef unsigned int file_id_t;
+#define FILE_NUM_TSIZE sizeof(file_id_t)
 typedef unsigned int piece_len_t;
 #define PIECE_LEN_TSIZE sizeof(piece_len_t)
 typedef unsigned short perror_t;
@@ -24,7 +24,8 @@ typedef unsigned short perror_t;
 
 struct cli_fields {
     pack_id_t pack_id;
-    piece_num_t piece_num;
+    file_id_t file_id;
+    piece_id_t piece_id;
     perror_t error;
     char file_name[FILE_NAME_MAX_LEN];
     unsigned char hsumm[MD5_DIGEST_LENGTH];
@@ -36,10 +37,10 @@ struct srv_fields {
     unsigned char piece[BUF_MAX_LEN - sizeof(struct cli_fields)];
 };
 
-int encode_cli_msg(struct cli_fields *fields, const char *msg);
+/* TODO: Fix msg_len bug */
+int encode_cli_msg(struct cli_fields *fields, const char *msg, ssize_t msg_len);
 size_t decode_cli_msg(const struct cli_fields *fields, char *msg);
-int encode_srv_msg(struct srv_fields *fields, const char *msg);
+int encode_srv_msg(struct srv_fields *fields, const char *msg, ssize_t msg_len);
 size_t decode_srv_msg(const struct srv_fields *fields, char *msg);
-
 
 #endif

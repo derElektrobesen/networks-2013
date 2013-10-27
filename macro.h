@@ -38,4 +38,8 @@
 #define m_alloc(type, count) ((type)malloc(sizeof(type) * (count)))
 #define m_alloc_s(type) (m_alloc(type, 1)) /* Allocate single obj */
 
+#define set_bit(val, pos)   ((unsigned int)((1 << (pos)) | (val)))
+#define reset_bit(val, pos) ((unsigned int)((~(1 << (pos))) & (val)))
+#define get_bit(val, pos)   ((unsigned int)((1 << (pos)) & (val)))
+
 #endif
