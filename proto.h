@@ -11,23 +11,26 @@
 #include "macro.h"
 
 typedef unsigned int pack_id_t;
-#define PACK_ID_TSIZE sizeof(pack_id_t)
 typedef unsigned int piece_id_t;
-#define PIECE_NUM_TSIZE sizeof(piece_id_t)
 typedef unsigned int file_id_t;
-#define FILE_NUM_TSIZE sizeof(file_id_t)
 typedef unsigned int piece_len_t;
-#define PIECE_LEN_TSIZE sizeof(piece_len_t)
 typedef unsigned short perror_t;
+
+#define PACK_ID_TSIZE sizeof(pack_id_t)
+#define PIECE_NUM_TSIZE sizeof(piece_id_t)
+#define FILE_NUM_TSIZE sizeof(file_id_t)
+#define PIECE_LEN_TSIZE sizeof(piece_len_t)
 #define PROTOCOL_ERROR_TSIZE sizeof(perror_t)
 
 
 struct cli_fields {
     pack_id_t pack_id;
-    file_id_t file_id;
     piece_id_t piece_id;
     perror_t error;
-    char file_name[FILE_NAME_MAX_LEN];
+    union {
+        char file_name[FILE_NAME_MAX_LEN];
+        file_id_t file_id;
+    };
     unsigned char hsumm[MD5_DIGEST_LENGTH];
 };
 

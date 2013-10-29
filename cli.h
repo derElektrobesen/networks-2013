@@ -31,6 +31,8 @@
 #define TRME_NO_ACTIVE_SRVS    -4   /**< Ни один сервер не смог получить запрос */
                                     /**< на передачу                            */
 #define TRME_ALLOC_FAILURE     -5   /**< Ошибка при выделении памяти            */
+#define TRME_FILE_ERROR        -6   /**< Ошибка при работе с файлом             */
+#define TRME_OUT_OF_MEMORY     -7   /**< Не хватает памяти для всего файла      */
 
 /* Typedefs */
 
@@ -45,7 +47,7 @@ struct file_data_t {
     ssize_t piece_len;              /**< Текущий размер куска                   */
     ssize_t space_left;             /**< Сколько выделенного места еще осталось */
     unsigned char *data;            /**< Кусок данных                           */
-    struct file_data_t *next_piece; /**< Следующий кусок данных                 */
+    struct file_data_t *next;       /**< Следующий кусок данных                 */
 };
 
 /**
@@ -74,18 +76,21 @@ struct active_connections {
 
 /* Часть файла которую необходимо запросить */
 struct pieces_queue {
-    piece_id_t max_piece_num;                      /**< Максимальный номер куска                       */
-    piece_id_t cur_piece;                          /**< Содержит минимальный незапрошенный номер куска */
-    piece_id_t max_failed_piece_num;               /**< Максимальный номер куска в failed_pieces       */
-    piece_id_t failed_pieces[MAX_PIECES_COUNT];    /**< Содержит неполученные куски файла              */
+    piece_id_t max_piece_num;                       /**< Максимальный номер куска                       */
+    piece_id_t cur_piece;                           /**< Содержит минимальный незапрошенный номер куска */
+    piece_id_t max_failed_piece_num;                /**< Максимальный номер куска в failed_pieces       */
+    piece_id_t failed_pieces[MAX_PIECES_COUNT];     /**< Содержит неполученные куски файла              */
+    piece_id_t flushed_pieces_count;                /**< Число записанных на диск кусков                */
 };
 
 /**
  * Структура определяет одну активную передачу
  */
 struct transmission {
+    FILE *file;
     char filename[FILE_NAME_MAX_LEN];
     unsigned char filesum[MD5_DIGEST_LENGTH];
+    unsigned long filesize;
     unsigned short status;
     struct pieces_queue pieces;
 
@@ -97,7 +102,9 @@ struct transmission {
  */
 struct transmissions {
     struct transmission trm[MAX_TRANSMISSIONS];
-    int count;
+    unsigned char openned_trms[MAX_TRANSMISSIONS];  /**< 1 && 0 */
+    unsigned int count;                             /**< Число закрытых передач                     */
+    unsigned long memory_allocated;
 };
 
 

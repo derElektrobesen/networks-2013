@@ -4,7 +4,11 @@ static struct active_connections q_descr = {
     .q_head = NULL,
     .q_tail = NULL
 };
-static struct transmissions t_descr = { .count = 0 };
+static struct transmissions t_descr = {
+    .count = 0,
+    .memory_allocated = 0,
+    .openned_trms = { [0 ... (MAX_TRANSMISSIONS - 1)] = 1 },
+};
 
 
 /**
@@ -105,22 +109,25 @@ static void request_piece(struct active_connection *con) {
  * Возвращает номер добавленной передачи.
  * В случае ошибки возвращает код ошибки (< 0)
  */
-static int add_transmission(const char *filename, 
+static int add_transmission(const char *filename,
         const unsigned char *filesum, unsigned long file_size) {
     struct transmissions *t = &t_descr;
     struct transmission *trm;
     struct pieces_queue *q;
     int r = 0;
-    
+
     if (t->count >= MAX_TRANSMISSIONS) {
         err(CLIENT, "add transmission failure: too many transmissions");
         r = TRME_TOO_MANY_TRM;
     }
     if (!r) {
-        r = t->count++;
+        for (r = 0; !t->openned_trms[r] && r < sizeof(t->trm); r++);
+        t->openned_trms[r] = 0;
+        t->count++;
         trm = t->trm + r;
         strncpy(trm->filename, filename, FILE_NAME_MAX_LEN);
         memcpy(trm->filesum, filesum, MD5_DIGEST_LENGTH);
+        trm->filesize = file_size;
         trm->status = TRM_WAITING_SERVERS;
 
         q = &trm->pieces;
@@ -137,38 +144,32 @@ static int add_transmission(const char *filename,
  * Удаляет из списка активных передач передачу номер tr_id
  */
 static void remove_transmission(int tr_id) {
-    struct transmissions *t = &t_descr;
-    int i;
-    for (i = tr_id; i < t->count; i++)
-        t->trm[i] = t->trm[i + 1];
-    t->count--;
+    t_descr.count--;
+    t_descr.openned_trms[tr_id] = 1;
 }
 
 /**
  * Ф-ия добавляет соединение с сервером для передачи файла
  */
-static struct active_connection *add_connection(int sock, 
+static struct active_connection *add_connection(int sock,
         int transmission_id, piece_id_t piece_id) {
     struct active_connection *q;
 
     q = m_alloc_s(struct active_connection *);
-    if (q) {
-        q->srv_sock = sock;
-        q->timeout = FILE_TIMEOUT;
-        q->transmission_id = transmission_id;
-        q->status = SRV_BUSY;
-        q->piece_id = piece_id;
-        q->next = NULL;
-        q->prev = NULL;
-        if (!q_descr.q_head)
-            q_descr.q_head = q;
-        if (q_descr.q_tail) {
-            q_descr.q_tail->next = q;
-            q->prev = q_descr.q_tail;
-        }
-        q_descr.q_tail = q;
-    } else
-        err_n(CLIENT, "m_alloc_s failure");
+    q->srv_sock = sock;
+    q->timeout = FILE_TIMEOUT;
+    q->transmission_id = transmission_id;
+    q->status = SRV_BUSY;
+    q->piece_id = piece_id;
+    q->next = NULL;
+    q->prev = NULL;
+    if (!q_descr.q_head)
+        q_descr.q_head = q;
+    if (q_descr.q_tail) {
+        q_descr.q_tail->next = q;
+        q->prev = q_descr.q_tail;
+    }
+    q_descr.q_tail = q;
     return q;
 }
 
@@ -178,10 +179,11 @@ static struct active_connection *add_connection(int sock,
  * В случае ошибки функция возвращает ненулевое значение,
  * которое можно интерпретировать с помощью TRME_* флагов
  */
-static int start_transmission(int transmission_id, 
+static int start_transmission(int transmission_id,
         const struct sockets_queue *q) {
     int i, req_count;
     int r = 0;
+    char fname[FILE_NAME_MAX_LEN];
     struct active_connection *con;
     struct file_data_t *data;
     struct transmission *t = t_descr.trm + transmission_id;
@@ -193,9 +195,23 @@ static int start_transmission(int transmission_id,
         r = TRME_ALLOC_FAILURE;
     } else {
         strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
+        snprintf(fname, sizeof(fname), "%s/%s", APP_DIR_PATH, t->filename);
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
-        for (i = 0, req_count = 0; i < q->count && i < t->pieces.max_piece_num; i++) {
+        data->start_piece_id = data->end_piece_id = 0;
+        data->data = m_alloc(unsigned char *, FILE_PIECE_SIZE);
+        t_descr.memory_allocated += FILE_PIECE_SIZE;
+        data->next = NULL;
+        t->file = fopen(fname, "wb");
+        if (!t->file) {
+            err_n(CLIENT, "fopen failure");
+            r = TRME_FILE_ERROR;
+        } else if (ftruncate(fileno(t->file), t->filesize)) {
+            err_n(CLIENT, "ftruncate failure");
+            r = TRME_OUT_OF_MEMORY;
+        }
+
+        for (i = 0, req_count = 0; !r && i < q->count && i < t->pieces.max_piece_num; i++) {
             con = add_connection(q->sockets[i], transmission_id, i);
             con->data = data;
             if (con) {
@@ -208,7 +224,7 @@ static int start_transmission(int transmission_id,
             } else
                 r = TRME_ALLOC_FAILURE;
         }
-        if (!req_count) {
+        if (!r && !req_count) {
             r = TRME_NO_ACTIVE_SRVS;
             err(CLIENT, "no active servers found to start transmission");
         }
@@ -235,6 +251,41 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
 }
 
 /**
+ * Ф-ия добавляет новые данные к уже полученным
+ */
+static void push_file_data(struct file_data_t *data, const struct srv_fields *f) {
+    struct file_data_t *cur = data, *res = NULL, *last = data;
+    const struct cli_fields *cf = &(f->cli_field);
+
+    while (!res && cur) {
+        last = cur;
+        if (cur->start_piece_id < 0 || cur->end_piece_id == cf->piece_id - 1)
+            res = cur;
+        cur = cur->next;
+    }
+    if (!res) {
+        res = m_alloc_s(struct file_data_t *);
+        res->data = m_alloc(unsigned char *, FILE_PIECE_SIZE);
+        res->start_piece_id = res->end_piece_id = cf->piece_id;
+        res->next = NULL;
+        res->piece_len = 0;
+        res->space_left = FILE_PIECE_SIZE;
+        last->next = res;
+        t_descr.memory_allocated += FILE_PIECE_SIZE;
+    }
+
+    if (res->space_left < f->piece_len) {
+        res->data = (unsigned char *)realloc(res->data, res->piece_len + res->space_left + FILE_PIECE_SIZE);
+        t_descr.memory_allocated += FILE_PIECE_SIZE;
+        res->space_left += FILE_PIECE_SIZE;
+    }
+
+    memcpy(res->data + res->piece_len, f->piece, f->piece_len);
+    res->piece_len += f->piece_len;
+    res->space_left -= f->piece_len;
+}
+
+/**
  * Ф-ия уплотняет полученные данные
  */
 static void compact_file_data(struct file_data_t *data) {
@@ -244,7 +295,7 @@ static void compact_file_data(struct file_data_t *data) {
 /**
  * Ф-ия сбрасывает полученную часть файла на диск
  */
-static void flush_data(struct file_data_t *data, const char *fname, ssize_t fname_len) {
+static void flush_file_data(struct file_data_t *data, FILE *file) {
     /* TODO */
 }
 
@@ -254,8 +305,10 @@ static void flush_data(struct file_data_t *data, const char *fname, ssize_t fnam
  */
 static void process_recieved_piece(const struct srv_fields *f,
         struct active_connection *con) {
-    struct file_data_t *data = con->data;
-
+    con->status = SRV_READY;
+    push_file_data(con->data, f);
+    compact_file_data(con->data);
+    flush_file_data(con->data, (t_descr.trm + con->transmission_id)->file);
 }
 
 /**
@@ -296,8 +349,8 @@ void main_dispatcher() {
  * Обрабатывает сообщение полученное от сервера.
  */
 int process_srv_message(int sock, const char *msg, ssize_t len) {
+    static struct srv_fields fields;    /**< Слишком большая для стека */
     struct active_connection *con;
-    struct srv_fields fields;
     int r = 0;
 
     log(CLIENT, "package recieved from server %d", sock);
