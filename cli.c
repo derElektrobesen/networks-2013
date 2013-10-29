@@ -174,6 +174,35 @@ static struct active_connection *add_connection(int sock,
 }
 
 /**
+ * Ф-ия выделяет память под структуру file_data_t
+ * и инициализирует поля начальными значениями.
+ * В случае ошибки, возвращает NULL
+ */
+struct file_data_t *alloc_piece_s(size_t datasize) {
+    struct file_data_t *data = m_alloc_s(struct file_data_t *);
+    if (data) {
+        data->data = m_alloc(unsigned char *, datasize);
+        if (data->data) {
+            data->start_piece_id = data->end_piece_id = -1;
+            data->piece_len = 0;
+            data->space_left = datasize;
+            data->next = NULL;
+            t_descr.memory_allocated += datasize;
+        } else {
+            err_n(CLIENT, "m_alloc failure");
+            free(data);
+            data = NULL;
+        }
+    } else
+        err_n(CLIENT, "m_alloc_s failure");
+    return data;
+}
+
+struct file_data_t *alloc_piece() {
+    return alloc_piece_s(FILE_PIECE_SIZE);
+}
+
+/**
  * Функция рассылает всем активным серверам запрос на
  * получение файла с заранее определенной хэш-суммой.
  * В случае ошибки функция возвращает ненулевое значение,
@@ -189,7 +218,7 @@ static int start_transmission(int transmission_id,
     struct transmission *t = t_descr.trm + transmission_id;
     struct cli_fields f = { .error = 0 };
 
-    data = m_alloc_s(struct file_data_t *);
+    data = alloc_piece();
     if (!data) {
         err_n(CLIENT, "transmission start failure");
         r = TRME_ALLOC_FAILURE;
@@ -198,10 +227,7 @@ static int start_transmission(int transmission_id,
         snprintf(fname, sizeof(fname), "%s/%s", APP_DIR_PATH, t->filename);
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
-        data->start_piece_id = data->end_piece_id = 0;
-        data->data = m_alloc(unsigned char *, FILE_PIECE_SIZE);
         t_descr.memory_allocated += FILE_PIECE_SIZE;
-        data->next = NULL;
         t->file = fopen(fname, "wb");
         if (!t->file) {
             err_n(CLIENT, "fopen failure");
@@ -251,45 +277,158 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
 }
 
 /**
+ * Ф-ия удаляет все данные в списке по головному указателю
+ */
+static void clear_mem(struct file_data_t *head) {
+    struct file_data_t *cur = head, *tmp;
+    while (cur) {
+        tmp = cur;
+        cur = cur->next;
+        free(tmp->data);
+        free(tmp);
+    }
+}
+
+/**
+ * Ф-ия проверяет наличие свободного места в куске, следующем за
+ * текущим (для сохранения в случае чего валидной связи) для
+ * копирования туда piece_len байт. Если место не найдено, ф-ия ищет
+ * подходящий участок из уже выделенных свободных участков. Если
+ * свободный участок не найден, ф-ия выделяет под него память,
+ * меняет все данные местами и ищет для освобожденного куста
+ * подходящее место. Возвращает кусок в который можно производить
+ * запись
+ */
+static struct file_data_t *search_free_space(struct file_data_t *prev_elem, size_t piece_len) {
+    struct file_data_t *res = prev_elem->next,
+                       *cur = prev_elem->next,
+                       *tmp = NULL,
+                       *prev = NULL,
+                       *fspace_head = NULL;
+    unsigned char *data;
+    size_t size;
+    if (res && res->space_left < piece_len) {
+        while (cur && (cur = cur->next)) {
+            if (cur->start_piece_id == -1) {
+                fspace_head = cur;
+                cur = NULL;
+            } else
+                tmp = cur;
+        }
+        if (fspace_head &&
+                tmp &&
+                fspace_head->space_left > res->piece_len + piece_len) {
+            tmp->next = fspace_head->next;
+            tmp = tmp->next;
+            fspace_head->piece_len = res->piece_len;
+            fspace_head->space_left -= res->piece_len;
+            fspace_head->next = res->next;
+            res->space_left += res->piece_len;
+            memcpy(fspace_head->data, res->data, res->piece_len);
+
+            while (tmp && tmp->space_left > res->space_left) {
+                prev = tmp;
+                tmp = tmp->next;
+            }
+            prev->next = res;
+            res->next = tmp;
+
+            res = fspace_head;
+        } else {
+            data = (unsigned char *)realloc(res->data,
+                    size = res->piece_len + res->space_left +
+                    FILE_PIECE_SIZE * (piece_len / FILE_PIECE_SIZE + 1));
+            if (!data) {
+                err_n(CLIENT, "realloc failure. Transmission failed");
+                res = NULL;
+            } else {
+                res->data = data;
+                t_descr.memory_allocated += size - res->piece_len - res->space_left;
+                res->space_left = size - res->piece_len;
+            }
+        }
+    }
+    return res;
+}
+
+/**
  * Ф-ия добавляет новые данные к уже полученным
  */
-static void push_file_data(struct file_data_t *data, const struct srv_fields *f) {
-    struct file_data_t *cur = data, *res = NULL, *last = data;
+static int push_file_data(struct file_data_t *data, const struct srv_fields *f) {
+    struct file_data_t *cur = data,
+                       *last = data,
+                       *res = NULL,
+                       *free_space = NULL;
     const struct cli_fields *cf = &(f->cli_field);
+    int r = 0;
 
-    while (!res && cur) {
-        last = cur;
-        if (cur->start_piece_id < 0 || cur->end_piece_id == cf->piece_id - 1)
-            res = cur;
+    /* Поиск
+     *      -- начала списка пустых блоков (free_space)
+     *      -- последнего элемента списка (tail)
+     *      -- последнего занятого элемента списка (prev_f_space)
+     */
+    while (cur) {
+        if (!free_space)
+            if (cur->start_piece_id == -1)
+                free_space = cur;
         cur = cur->next;
     }
+    cur = data;
+
+    while (!res && cur) {
+        if (last->end_piece_id < cf->piece_id) {
+            if (cur->start_piece_id - 1 >= cf->piece_id) {
+                /* Вставим кусок перед текущим */
+                if (!free_space)
+                    free_space = alloc_piece();
+                res = free_space;
+                free_space = NULL;
+                last->next = res;
+                res->next = cur;
+            } else if (cur->start_piece_id == -1) {
+                /* Достигли незанятого куска */
+                res = cur;
+            }
+        } else if (cur->end_piece_id == cf->piece_id - 1) {
+            /* Вставим в конец текущего куска */
+            res = cur;
+        } else {
+            last = cur;
+            cur = cur->next;
+        }
+    }
     if (!res) {
-        res = m_alloc_s(struct file_data_t *);
-        res->data = m_alloc(unsigned char *, FILE_PIECE_SIZE);
-        res->start_piece_id = res->end_piece_id = cf->piece_id;
-        res->next = NULL;
-        res->piece_len = 0;
-        res->space_left = FILE_PIECE_SIZE;
+        /* Вставляем в конец; free_space == NULL */
+        res = alloc_piece();
         last->next = res;
-        t_descr.memory_allocated += FILE_PIECE_SIZE;
     }
 
-    if (res->space_left < f->piece_len) {
-        res->data = (unsigned char *)realloc(res->data, res->piece_len + res->space_left + FILE_PIECE_SIZE);
-        t_descr.memory_allocated += FILE_PIECE_SIZE;
-        res->space_left += FILE_PIECE_SIZE;
+    res = search_free_space(last, f->piece_len);
+    if (!res) {
+        clear_mem(data);
+        r = TRME_OUT_OF_MEMORY;
+    } else {
+        if (res->start_piece_id == -1)
+            res->start_piece_id = cf->piece_id;
+        res->end_piece_id = cf->piece_id;
+
+        memcpy(res->data + res->piece_len, f->piece, f->piece_len);
+        res->piece_len += f->piece_len;
+        res->space_left -= f->piece_len;
     }
 
-    memcpy(res->data + res->piece_len, f->piece, f->piece_len);
-    res->piece_len += f->piece_len;
-    res->space_left -= f->piece_len;
+    return r;
 }
 
 /**
  * Ф-ия уплотняет полученные данные
  */
 static void compact_file_data(struct file_data_t *data) {
+    struct file_data_t *cur = data;
     /* TODO */
+    while (cur) {
+        cur = cur->next;
+    }
 }
 
 /**

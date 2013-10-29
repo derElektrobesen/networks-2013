@@ -44,8 +44,8 @@
 struct file_data_t {
     piece_id_t start_piece_id;      /**< Начальный индекс куска файла           */
     piece_id_t end_piece_id;        /**< Конечный индекс куска файла            */
-    ssize_t piece_len;              /**< Текущий размер куска                   */
-    ssize_t space_left;             /**< Сколько выделенного места еще осталось */
+    size_t piece_len;               /**< Текущий размер куска                   */
+    size_t space_left;              /**< Сколько выделенного места еще осталось */
     unsigned char *data;            /**< Кусок данных                           */
     struct file_data_t *next;       /**< Следующий кусок данных                 */
 };
