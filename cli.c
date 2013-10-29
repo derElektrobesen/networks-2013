@@ -362,11 +362,6 @@ static int push_file_data(struct file_data_t *data, const struct srv_fields *f) 
     const struct cli_fields *cf = &(f->cli_field);
     int r = 0;
 
-    /* Поиск
-     *      -- начала списка пустых блоков (free_space)
-     *      -- последнего элемента списка (tail)
-     *      -- последнего занятого элемента списка (prev_f_space)
-     */
     while (cur) {
         if (!free_space)
             if (cur->start_piece_id == -1)
