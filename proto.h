@@ -27,11 +27,11 @@ struct cli_fields {
     pack_id_t pack_id;
     piece_id_t piece_id;
     perror_t error;
-    union {
-        char file_name[FILE_NAME_MAX_LEN];
-        file_id_t file_id;
-    };
+    file_id_t file_id;
     unsigned char hsumm[MD5_DIGEST_LENGTH];
+    char file_name[FILE_NAME_MAX_LEN]; // Заполняется клиентом
+    // -1, если отправляет клиент, иначе 
+    
 };
 
 struct srv_fields {
