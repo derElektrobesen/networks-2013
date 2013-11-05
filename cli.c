@@ -72,13 +72,23 @@ static void request_piece(struct active_connection *con) {
     struct transmission *t;
     struct cli_fields f;
     piece_id_t piece;
+    int i, j;
 
     if (con->status == SRV_READY) {
         t = t_descr.trm + con->transmission_id;
         q = &(t->pieces);
-        if (q->max_failed_piece_num >= 0)
-            piece = q->failed_pieces[--q->max_failed_piece_num];
-        else
+        if (q->max_failed_piece_num >= 0) {
+            piece = q->failed_pieces[0];
+            j = 0;
+            for (i = 1; i < q->max_failed_piece_num; i++)
+                if (q->failed_pieces[i] < piece) {
+                    piece = q->failed_pieces[i];
+                    j = i;
+                }
+            for (i = j; i < q->max_failed_piece_num; i++)
+                q->failed_pieces[i] = q->failed_pieces[i + 1];
+            q->max_failed_piece_num--;
+        } else
             piece = q->cur_piece++;
 
         if (piece > q->max_piece_num) {
@@ -94,6 +104,7 @@ static void request_piece(struct active_connection *con) {
             free(con);
         } else {
             f.piece_id = piece;
+            /* TODO */
             strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
             memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
