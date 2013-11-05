@@ -18,7 +18,7 @@ static struct transmissions t_descr = {
  */
 static int require_piece(struct cli_fields *f, struct active_connection *con) {
     char msg[BUF_MAX_LEN];
-    ssize_t msg_len;
+    size_t msg_len;
     int r = 0;
 
     f->pack_id = con->pack_id = rand() % MAX_PACK_NUM;
@@ -387,7 +387,7 @@ void main_dispatcher() {
  * Callback-функция которая вызывается при получении сообщения клиентом.
  * Обрабатывает сообщение полученное от сервера.
  */
-int process_srv_message(int sock, const char *msg, ssize_t len) {
+int process_srv_message(int sock, const char *msg, size_t len) {
     static struct srv_fields fields;    /**< Слишком большая для стека */
     struct active_connection *con;
     int r = 0;

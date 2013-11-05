@@ -40,9 +40,9 @@ struct srv_fields {
 };
 
 /* TODO: Fix msg_len bug */
-int encode_cli_msg(struct cli_fields *fields, const char *msg, ssize_t msg_len);
+int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len);
 size_t decode_cli_msg(const struct cli_fields *fields, char *msg);
-int encode_srv_msg(struct srv_fields *fields, const char *msg, ssize_t msg_len);
+int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len);
 size_t decode_srv_msg(const struct srv_fields *fields, char *msg);
 
 #endif

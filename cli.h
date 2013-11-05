@@ -124,7 +124,7 @@ struct transmissions {
 
 /* Functions prototypes */
 /* Обрабатывает сообщение полученное от сервера */
-int process_srv_message(int sock, const char *msg, ssize_t len);
+int process_srv_message(int sock, const char *msg, size_t len);
 /* Основной диспетчер */
 void main_dispatcher();
 /* Запускает посылку файла */
