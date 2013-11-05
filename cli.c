@@ -184,8 +184,7 @@ static int start_transmission(int transmission_id,
     int r = 0;
     char fname[FILE_NAME_MAX_LEN];
     struct active_connection *con;
-    struct file_data_t *data;
-    struct file_udata_t *udata;
+    struct file_full_data_t *data;
     struct transmission *t = t_descr.trm + transmission_id;
     struct cli_fields f = { .error = 0 };
     int elem_count;
@@ -194,19 +193,20 @@ static int start_transmission(int transmission_id,
     if (elem_count > MIN_ALLOCATED_PIECES)
         elem_count = MIN_ALLOCATED_PIECES;
 
-    data = m_alloc_s(struct file_data_t *);
-    udata = m_alloc_s(struct file_udata_t *);
-    if (!data || !udata) {
+    data = m_alloc_s(struct file_full_data_t *);
+    if (!data) {
         err_n(CLIENT, "transmission start failure");
         r = TRME_ALLOC_FAILURE;
-        if (data)
-            free(data);
-        if (udata)
-            free(udata);
     } else {
         strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
         snprintf(fname, sizeof(fname), "%s/%s", APP_DIR_PATH, t->filename);
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
+
+        for (i = 0; i < sizeof(data->udata) / sizeof(data->udata[0]); i++)
+            data->udata[i].piece_id = -1;
+        data->data.s_piece = 0;
+        data->data.f_piece = MIN_ALLOCATED_PIECES > t->pieces.max_piece_num ?
+            t->pieces.max_piece_num : MIN_ALLOCATED_PIECES;
 
         t->file = fopen(fname, "wb");
         if (!t->file) {
@@ -259,21 +259,50 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
 /**
  * Ф-ия добавляет новые данные к уже полученным
  */
-static void push_file_data(struct file_data_t *data, const struct srv_fields *f) {
-   /* TODO */ 
+static void push_file_data(struct file_full_data_t *data, const struct srv_fields *f) {
+    const struct cli_fields *cli = &(f->cli_field);
+    struct file_udata_t *ud;
+    struct file_data_t *d;
+    unsigned char *d_ptr = NULL;
+    int i;
+
+    if (cli->piece_id > data->data.f_piece) {
+        /* Откладываем данные до лучших времен */
+        ud = data->udata;
+        for (i = 0; i < sizeof(data->udata) / sizeof(*ud); i++) {
+            if (ud->piece_id == -1) {
+                i = sizeof(data->udata);
+                ud->piece_id = cli->piece_id;
+                ud->piece_len = f->piece_len;
+                d_ptr = ud->data;
+            }
+            ud++;
+        }
+    } else {
+        /* Копируем блок в общий буфер */
+        d = &(data->data);
+        d->full_size += f->piece_len;
+        d->pieces_copied++;
+        d_ptr = d->data + (cli->piece_id - d->s_piece);
+    }
+    if (d_ptr) {
+        memcpy(d_ptr, f->piece, f->piece_len);
+    } else {
+        err(CLIENT, "Piece %d saving failure", cli->piece_id);
+    }
 }
 
 /**
  * Ф-ия уплотняет полученные данные
  */
-static void compact_file_data(struct file_data_t *data) {
+static void compact_file_data(struct file_full_data_t *data) {
     /* TODO */
 }
 
 /**
  * Ф-ия сбрасывает полученную часть файла на диск
  */
-static void flush_file_data(struct file_data_t *data, FILE *file) {
+static void flush_file_data(struct file_full_data_t *data, FILE *file) {
     /* TODO */
 }
 

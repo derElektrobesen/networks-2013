@@ -29,8 +29,6 @@ struct cli_fields {
     file_id_t file_id;
     unsigned char hsumm[MD5_DIGEST_LENGTH];
     char file_name[FILE_NAME_MAX_LEN]; // Заполняется клиентом
-    // -1, если отправляет клиент, иначе 
-    
 };
 
 #define DATA_BLOCK_LEN (BUF_MAX_LEN - sizeof(struct cli_fields))
