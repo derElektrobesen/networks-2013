@@ -13,7 +13,7 @@
 typedef unsigned int pack_id_t;
 typedef unsigned int piece_id_t;
 typedef unsigned int file_id_t;
-typedef unsigned int piece_len_t;
+typedef size_t piece_len_t;
 typedef unsigned short perror_t;
 
 #define PACK_ID_TSIZE sizeof(pack_id_t)
@@ -27,11 +27,11 @@ struct cli_fields {
     pack_id_t pack_id;
     piece_id_t piece_id;
     perror_t error;
-    union {
-        char file_name[FILE_NAME_MAX_LEN];
-        file_id_t file_id;
-    };
+    file_id_t file_id;
     unsigned char hsumm[MD5_DIGEST_LENGTH];
+    char file_name[FILE_NAME_MAX_LEN]; // Заполняется клиентом
+    // -1, если отправляет клиент, иначе 
+    
 };
 
 #define DATA_BLOCK_LEN (BUF_MAX_LEN - sizeof(struct cli_fields))

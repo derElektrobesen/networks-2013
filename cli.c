@@ -209,7 +209,6 @@ static int start_transmission(int transmission_id,
         snprintf(fname, sizeof(fname), "%s/%s", APP_DIR_PATH, t->filename);
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
-        data->next = NULL;
         t->file = fopen(fname, "wb");
         if (!t->file) {
             err_n(CLIENT, "fopen failure");
@@ -262,6 +261,7 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
  * Ф-ия добавляет новые данные к уже полученным
  */
 static void push_file_data(struct file_data_t *data, const struct srv_fields *f) {
+    /* TODO */
 }
 
 /**

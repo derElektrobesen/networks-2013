@@ -1,8 +1,8 @@
 1. Чтение конфиг файла
 2. Протокол обмена
-client:    error\0pack-id\0piece_num\0\hash\0file_name
+cli: error | pack-id | piece_id | file_id | hash | file_name
 
-server:    error\0pack-id\0piece_num\0piece_len\0\hash\0file_name\0data
+srv: error | pack-id | piece_id | piece_len | file_id | hash | file_name | data
     
     pack-id:Ключ, однозначно идентифицирующий клиентов (num) (2 bytes)
     len:    Длина data (4 bytes)
