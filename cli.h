@@ -42,12 +42,11 @@
  * до окончания передачи
  */
 struct file_data_t {
-    piece_id_t start_piece_id;      /**< Начальный индекс куска файла           */
-    piece_id_t end_piece_id;        /**< Конечный индекс куска файла            */
-    ssize_t piece_len;              /**< Текущий размер куска                   */
-    ssize_t space_left;             /**< Сколько выделенного места еще осталось */
-    unsigned char *data;            /**< Кусок данных                           */
+    piece_id_t piece_id;            /**< Индекс куска файла                     */
+    size_t piece_len;               /**< Текущий размер куска                   */
+    unsigned char data[DATA_BLOCK_LEN]; /**< Кусок данных                       */
     struct file_data_t *next;       /**< Следующий кусок данных                 */
+    struct file_data_t *prev;       /**< Предыдущий кусок данных                */
 };
 
 /**
@@ -90,8 +89,8 @@ struct transmission {
     FILE *file;
     char filename[FILE_NAME_MAX_LEN];
     unsigned char filesum[MD5_DIGEST_LENGTH];
-    unsigned long filesize;
     unsigned short status;
+    size_t filesize;
     struct pieces_queue pieces;
 
     /* TODO: Добавить список активных для данной передачи серверов */
@@ -104,7 +103,6 @@ struct transmissions {
     struct transmission trm[MAX_TRANSMISSIONS];
     unsigned char openned_trms[MAX_TRANSMISSIONS];  /**< 1 && 0 */
     unsigned int count;                             /**< Число закрытых передач                     */
-    unsigned long memory_allocated;
 };
 
 

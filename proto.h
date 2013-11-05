@@ -34,10 +34,12 @@ struct cli_fields {
     unsigned char hsumm[MD5_DIGEST_LENGTH];
 };
 
+#define DATA_BLOCK_LEN (BUF_MAX_LEN - sizeof(struct cli_fields))
+
 struct srv_fields {
     struct cli_fields cli_field;
     piece_len_t piece_len;
-    unsigned char piece[BUF_MAX_LEN - sizeof(struct cli_fields)];
+    unsigned char piece[DATA_BLOCK_LEN];
 };
 
 /* TODO: Fix msg_len bug */

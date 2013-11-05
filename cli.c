@@ -6,7 +6,6 @@ static struct active_connections q_descr = {
 };
 static struct transmissions t_descr = {
     .count = 0,
-    .memory_allocated = 0,
     .openned_trms = { [0 ... (MAX_TRANSMISSIONS - 1)] = 1 },
 };
 
@@ -185,22 +184,31 @@ static int start_transmission(int transmission_id,
     int r = 0;
     char fname[FILE_NAME_MAX_LEN];
     struct active_connection *con;
-    struct file_data_t *data;
+    struct file_data_t *data, *tmp;
     struct transmission *t = t_descr.trm + transmission_id;
     struct cli_fields f = { .error = 0 };
+    int elem_count;
 
-    data = m_alloc_s(struct file_data_t *);
+    elem_count = t->pieces.max_piece_num;
+    if (elem_count > MIN_ALLOCATED_PIECES)
+        elem_count = MIN_ALLOCATED_PIECES;
+
+    data = m_alloc(struct file_data_t *, elem_count);
     if (!data) {
         err_n(CLIENT, "transmission start failure");
         r = TRME_ALLOC_FAILURE;
     } else {
+        tmp = data;
+        for (i = 0; i < elem_count; i++) {
+            tmp->next = (i == elem_count - 1 ? NULL : tmp + 1);
+            tmp->prev = (i == 0 ? NULL : tmp - 1);
+            tmp++;
+        }
+
         strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
         snprintf(fname, sizeof(fname), "%s/%s", APP_DIR_PATH, t->filename);
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
-        data->start_piece_id = data->end_piece_id = 0;
-        data->data = m_alloc(unsigned char *, FILE_PIECE_SIZE);
-        t_descr.memory_allocated += FILE_PIECE_SIZE;
         data->next = NULL;
         t->file = fopen(fname, "wb");
         if (!t->file) {
@@ -254,35 +262,6 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
  * Ф-ия добавляет новые данные к уже полученным
  */
 static void push_file_data(struct file_data_t *data, const struct srv_fields *f) {
-    struct file_data_t *cur = data, *res = NULL, *last = data;
-    const struct cli_fields *cf = &(f->cli_field);
-
-    while (!res && cur) {
-        last = cur;
-        if (cur->start_piece_id < 0 || cur->end_piece_id == cf->piece_id - 1)
-            res = cur;
-        cur = cur->next;
-    }
-    if (!res) {
-        res = m_alloc_s(struct file_data_t *);
-        res->data = m_alloc(unsigned char *, FILE_PIECE_SIZE);
-        res->start_piece_id = res->end_piece_id = cf->piece_id;
-        res->next = NULL;
-        res->piece_len = 0;
-        res->space_left = FILE_PIECE_SIZE;
-        last->next = res;
-        t_descr.memory_allocated += FILE_PIECE_SIZE;
-    }
-
-    if (res->space_left < f->piece_len) {
-        res->data = (unsigned char *)realloc(res->data, res->piece_len + res->space_left + FILE_PIECE_SIZE);
-        t_descr.memory_allocated += FILE_PIECE_SIZE;
-        res->space_left += FILE_PIECE_SIZE;
-    }
-
-    memcpy(res->data + res->piece_len, f->piece, f->piece_len);
-    res->piece_len += f->piece_len;
-    res->space_left -= f->piece_len;
 }
 
 /**
