@@ -72,13 +72,23 @@ static void request_piece(struct active_connection *con) {
     struct transmission *t;
     struct cli_fields f;
     piece_id_t piece;
+    int i, j;
 
     if (con->status == SRV_READY) {
         t = t_descr.trm + con->transmission_id;
         q = &(t->pieces);
-        if (q->max_failed_piece_num >= 0)
-            piece = q->failed_pieces[--q->max_failed_piece_num];
-        else
+        if (q->max_failed_piece_num >= 0) {
+            piece = q->failed_pieces[0];
+            j = 0;
+            for (i = 1; i < q->max_failed_piece_num; i++)
+                if (q->failed_pieces[i] < piece) {
+                    piece = q->failed_pieces[i];
+                    j = i;
+                }
+            for (i = j; i < q->max_failed_piece_num; i++)
+                q->failed_pieces[i] = q->failed_pieces[i + 1];
+            q->max_failed_piece_num--;
+        } else
             piece = q->cur_piece++;
 
         if (piece > q->max_piece_num) {
@@ -94,6 +104,7 @@ static void request_piece(struct active_connection *con) {
             free(con);
         } else {
             f.piece_id = piece;
+            /* TODO */
             strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
             memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
@@ -184,8 +195,7 @@ static int start_transmission(int transmission_id,
     int r = 0;
     char fname[FILE_NAME_MAX_LEN];
     struct active_connection *con;
-    struct file_data_t *data;
-    struct file_udata_t *udata;
+    struct file_full_data_t *data;
     struct transmission *t = t_descr.trm + transmission_id;
     struct cli_fields f = { .error = 0 };
     int elem_count;
@@ -194,19 +204,21 @@ static int start_transmission(int transmission_id,
     if (elem_count > MIN_ALLOCATED_PIECES)
         elem_count = MIN_ALLOCATED_PIECES;
 
-    data = m_alloc_s(struct file_data_t *);
-    udata = m_alloc_s(struct file_udata_t *);
-    if (!data || !udata) {
+    data = m_alloc_s(struct file_full_data_t *);
+    if (!data) {
         err_n(CLIENT, "transmission start failure");
         r = TRME_ALLOC_FAILURE;
-        if (data)
-            free(data);
-        if (udata)
-            free(udata);
     } else {
         strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
         snprintf(fname, sizeof(fname), "%s/%s", APP_DIR_PATH, t->filename);
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
+
+        for (i = 0; i < sizeof(data->udata) / sizeof(data->udata[0]); i++)
+            data->udata[i].piece_id = -1;
+        data->data.pieces_copied = 0;
+        data->data.s_piece = 0;
+        data->data.f_piece = (MIN_ALLOCATED_PIECES > t->pieces.max_piece_num ?
+            t->pieces.max_piece_num : MIN_ALLOCATED_PIECES) - 1;
 
         t->file = fopen(fname, "wb");
         if (!t->file) {
@@ -259,22 +271,70 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
 /**
  * Ф-ия добавляет новые данные к уже полученным
  */
-static void push_file_data(struct file_data_t *data, const struct srv_fields *f) {
-   /* TODO */ 
-}
+static void push_file_data(struct file_full_data_t *data, const struct srv_fields *f) {
+    const struct cli_fields *cli = &(f->cli_field);
+    struct file_udata_t *ud;
+    struct file_data_t *d;
+    unsigned char *d_ptr = NULL;
+    int i;
 
-/**
- * Ф-ия уплотняет полученные данные
- */
-static void compact_file_data(struct file_data_t *data) {
-    /* TODO */
+    if (cli->piece_id > data->data.f_piece) {
+        /* Откладываем данные до лучших времен */
+        ud = data->udata;
+        for (i = 0; i < sizeof(data->udata) / sizeof(*ud); i++) {
+            if (ud->piece_id == -1) {
+                i = sizeof(data->udata);
+                ud->piece_id = cli->piece_id;
+                ud->piece_len = f->piece_len;
+                d_ptr = ud->data;
+            }
+            ud++;
+        }
+    } else {
+        /* Копируем блок в общий буфер */
+        d = &(data->data);
+        d->full_size += f->piece_len;
+        d->pieces_copied++;
+        d_ptr = d->data + (cli->piece_id - d->s_piece);
+    }
+    if (d_ptr) {
+        memcpy(d_ptr, f->piece, f->piece_len);
+    } else {
+        err(CLIENT, "Piece %d saving failure", cli->piece_id);
+    }
 }
 
 /**
  * Ф-ия сбрасывает полученную часть файла на диск
  */
-static void flush_file_data(struct file_data_t *data, FILE *file) {
-    /* TODO */
+static void flush_file_data(struct file_full_data_t *data,
+        FILE *file, piece_id_t max_piece_num) {
+    struct file_data_t *d = &(data->data);
+    struct file_udata_t *ud;
+    int i;
+
+    if (d->pieces_copied == d->f_piece - d->s_piece + 1) {
+        /* Данные можно сбрасывать на жесткий диск */
+        fwrite(d->data, sizeof(d->data[0]), d->full_size, file);
+
+        d->s_piece = d->f_piece + 1;
+        d->pieces_copied = 0;
+        d->full_size = 0;
+        d->f_piece += MIN_ALLOCATED_PIECES - 1;
+        if (d->f_piece > max_piece_num)
+            d->f_piece = max_piece_num;
+
+        ud = data->udata;
+        for (i = 0; i < sizeof(data->udata) / sizeof(*ud); i++) {
+            if (ud->piece_id != -1 && ud->piece_id < d->f_piece) {
+                d->pieces_copied++;
+                d->full_size += ud->piece_len;
+                memcpy(d->data + (ud->piece_id - d->s_piece), ud->data, ud->piece_len);
+                ud->piece_id = -1;
+            }
+            ud++;
+        }
+    }
 }
 
 /**
@@ -283,10 +343,11 @@ static void flush_file_data(struct file_data_t *data, FILE *file) {
  */
 static void process_recieved_piece(const struct srv_fields *f,
         struct active_connection *con) {
+    struct transmission *t = t_descr.trm + con->transmission_id;
+
     con->status = SRV_READY;
     push_file_data(con->data, f);
-    compact_file_data(con->data);
-    flush_file_data(con->data, (t_descr.trm + con->transmission_id)->file);
+    flush_file_data(con->data, t->file, t->pieces.max_piece_num);
 }
 
 /**
