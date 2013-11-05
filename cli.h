@@ -37,16 +37,22 @@
 /* Typedefs */
 
 /**
- * Структура содержит часть полученных данных
- * Адрес первого элемента списка не должен быть изменен
- * до окончания передачи
+ * Структура описывает кусок, который выбивается из структуры ниже
  */
-struct file_data_t {
+struct unconfirmed_file_data_t {
     piece_id_t piece_id;            /**< Индекс куска файла                     */
     size_t piece_len;               /**< Текущий размер куска                   */
     unsigned char data[DATA_BLOCK_LEN]; /**< Кусок данных                       */
-    struct file_data_t *next;       /**< Следующий кусок данных                 */
-    struct file_data_t *prev;       /**< Предыдущий кусок данных                */
+};
+
+/**
+ * Структура описывает блок данных для сброса.
+ */
+struct file_udata_t {
+    piece_id_t s_piece;
+    piece_id_t f_piece;
+    size_t full_size;
+    unsigned char data[MIN_ALLOCATED_PIECES * DATA_BLOCK_LEN];
 };
 
 /**
@@ -60,6 +66,7 @@ struct active_connection {
     piece_id_t piece_id;
     file_id_t file_id;                 /* TODO */
     pack_id_t pack_id;
+    struct file_udata_t *udata;
     struct file_data_t *data;
     struct active_connection *next;
     struct active_connection *prev;

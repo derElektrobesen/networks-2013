@@ -13,13 +13,12 @@
 typedef unsigned int pack_id_t;
 typedef unsigned int piece_id_t;
 typedef unsigned int file_id_t;
-typedef size_t piece_len_t;
 typedef unsigned short perror_t;
 
 #define PACK_ID_TSIZE sizeof(pack_id_t)
 #define PIECE_NUM_TSIZE sizeof(piece_id_t)
 #define FILE_NUM_TSIZE sizeof(file_id_t)
-#define PIECE_LEN_TSIZE sizeof(piece_len_t)
+#define PIECE_LEN_TSIZE sizeof(size_t)
 #define PROTOCOL_ERROR_TSIZE sizeof(perror_t)
 
 
@@ -38,7 +37,7 @@ struct cli_fields {
 
 struct srv_fields {
     struct cli_fields cli_field;
-    piece_len_t piece_len;
+    size_t piece_len;
     unsigned char piece[DATA_BLOCK_LEN];
 };
 
