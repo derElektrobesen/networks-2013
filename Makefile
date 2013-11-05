@@ -1,7 +1,7 @@
 CC = gcc
 
 CFLAGS = -Wall
-FLAGS = -pthread -lpthread -D_MULTI_THREADED -lssl -lcrypto -MMD
+FLAGS = -pthread -lpthread -D_MULTI_THREADED -MMD
 
 SRV = SRV
 CLI = CLI
@@ -38,7 +38,7 @@ DEFINES =   DEBUG \
 
 DEFS = $(DEFINES:%=-D%)
 
-GLOBAL_SRCS = network.c proto.c
+GLOBAL_SRCS = network.c md5.c proto.c
 GLOBAL_OBJS = $(GLOBAL_SRCS:%.c=$(O_DIR)/%.o)
 
 SRV_SRCS = srv.c
