@@ -5,13 +5,7 @@
  * sizeof(@md5digest) == MD5_DEGEST_LENGTH
  */
 int get_hash(struct cli_fields *fields, unsigned char *md5digest) {
-    unsigned char hash_key[2 * MAX_PACK_NUM_LEN + 1];
-    MD5_CTX md5handler;
 
-    if (fields == NULL) {
-        err_n(SERVER, "get_hash failure");
-        return 1;
-    }
     /* TODO: Remove act_send_msg field from next line */
     //snprintf((char *)hash_key, sizeof(hash_key), "%d%d", fields->pack_num, fields->act_send_msg.piece_id);
 
@@ -37,24 +31,20 @@ unsigned int get_hex(const char *msg, int n) {
  * Протокол получен от сервера
  */
 int encode_cli_msg(struct cli_fields *fields, const char *msg, ssize_t msg_len) {
-    int i, e, r = 0;
-    const char *p;
-    if ((e = get_hex(msg, PROTOCOL_ERROR_TSIZE)) != 0) {
+    int r = 0;
+    unsigned int e = 0;
+    const char *p = msg;
+    memcpy(&e, p, PROTOCOL_ERROR_TSIZE);
+    if (e != 0){
         err(CLIENT, "bad package");
         r = -1;
     } else {
-        p = msg;
-        fields->pack_id = get_hex(p+=PROTOCOL_ERROR_TSIZE, PACK_ID_TSIZE);
-        fields->piece_id = get_hex(p+=PACK_ID_TSIZE, PIECE_NUM_TSIZE);
+        memcpy(&(fields->pack_id), p+=PROTOCOL_ERROR_TSIZE, PACK_ID_TSIZE); 
+        memcpy(&(fields->piece_id), p+=PACK_ID_TSIZE, PIECE_NUM_TSIZE);
         fields->error = e;
-        /* fields->file_id = -1*/
-        fields->file_id = get_hex(p+=PIECE_NUM_TSIZE, FILE_NUM_TSIZE);
-        p += FILE_NUM_TSIZE;
-
-        for (i = 0; i < MD5_DIGEST_LENGTH; i++, p++)
-            fields->hsumm[i] = *p;
-        for (i = 0; i < FILE_NAME_MAX_LEN; i++, p++)
-            fields->file_name[i] = *p;
+        memcpy(&(fields->file_id), p+=PIECE_NUM_TSIZE, FILE_NUM_TSIZE);
+        memcpy(&(fields->hsumm), p+= FILE_NUM_TSIZE, MD5_DIGEST_LENGTH);
+        memcpy(&(fields->file_name), p+=MD5_DIGEST_LENGTH, FILE_NAME_MAX_LEN);
     }
     return r;
 }
@@ -65,30 +55,26 @@ int encode_cli_msg(struct cli_fields *fields, const char *msg, ssize_t msg_len) 
  * Протокол получен от клиента
  */
 int encode_srv_msg(struct srv_fields *fields, const char *msg, ssize_t msg_len) {
-    int i, r = 0;
-    int err;
-    const char *p;
-    if ((err = get_hex(msg, PROTOCOL_ERROR_TSIZE)) != 0) {
+    int r = 0;
+    unsigned int e = 0;
+    const char *p = msg;
+    memcpy(&e, p, PROTOCOL_ERROR_TSIZE);
+    if (e != 0) {
         err(CLIENT, "bad protocol");
         r = -1;
     } else {
-        p = msg;
-        fields->cli_field.pack_id
-                    = get_hex(p+=PROTOCOL_ERROR_TSIZE, PACK_ID_TSIZE);
-        fields->cli_field.piece_id
-                    = get_hex(p+=PACK_ID_TSIZE, PIECE_NUM_TSIZE);
-        fields->cli_field.error = err;
-        fields->piece_len = get_hex(p+=PIECE_NUM_TSIZE, PIECE_LEN_TSIZE);
-        fields->cli_field.file_id
-            = get_hex(p+=PIECE_LEN_TSIZE, FILE_NUM_TSIZE);
-        p += FILE_NUM_TSIZE;
-        for (i = 0; i < MD5_DIGEST_LENGTH; i++, p++)
-            fields->cli_field.hsumm[i] = *p;
-        /* fields->cli_field.file name skip */
-        for (i = 0; i < FILE_NAME_MAX_LEN; i++, p++)
-            fields->cli_field.file_name[i] = *p;
-        for (i = 0; i < (BUF_MAX_LEN - sizeof(struct cli_fields)); i++, p++)
-            fields->piece[i] = *p;
+        
+        memcpy(&(fields->cli_field.pack_id), p+=PROTOCOL_ERROR_TSIZE,
+                PACK_ID_TSIZE); 
+        memcpy(&(fields->cli_field.piece_id), p+=PACK_ID_TSIZE, PIECE_NUM_TSIZE);
+        fields->cli_field.error = e;
+        memcpy(&(fields->piece_len), p+=PIECE_NUM_TSIZE, PIECE_LEN_TSIZE);
+        memcpy(&(fields->cli_field.file_id), p+=PIECE_LEN_TSIZE, FILE_NUM_TSIZE);
+        memcpy(&(fields->cli_field.hsumm), p+=FILE_NUM_TSIZE, MD5_DIGEST_LENGTH);
+        memcpy(&(fields->cli_field.file_name), p+= MD5_DIGEST_LENGTH, 
+                FILE_NAME_MAX_LEN);
+        memcpy(&(fields->piece), p+=FILE_NAME_MAX_LEN, 
+                (BUF_MAX_LEN - sizeof(struct cli_fields)));
     }
     return r;
 }
