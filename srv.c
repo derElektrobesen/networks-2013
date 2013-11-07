@@ -1,8 +1,181 @@
 #include "srv.h"
 
-int process_client_message(int sender_sock, const char *msg, ssize_t count) {
-    char *message = "Message recieved!\n";
-    log(SERVER, "message recieved from socket %d: %s", sender_sock, msg);
-    send(sender_sock, message, strlen(message), 0);
-    return 0;
+static struct files_queue f_descr = {
+    .count = 0,
+    .positions = { [0 ... (MAX_TRANSMISSIONS - 1)] = 0 },
+};
+
+static void _get_cache(int id, const unsigned char *data,
+        unsigned long data_len) {
+    struct file_cache *c = f_descr.cache + id;
+    size_t start, len, nlen, count;
+
+    start = DATA_BLOCK_LEN * c->start_piece;
+    len = sizeof(c->data) / sizeof(*(c->data));
+    count = CACHED_PIECES_COUNT;
+    if (!data) {
+        fseek(c->file, start, SEEK_SET);
+        nlen = fread(c->data, sizeof(*(c->data)), len, c->file);
+        if (nlen != len) {
+            count = nlen / DATA_BLOCK_LEN;
+            if (count * DATA_BLOCK_LEN != nlen)
+                count++;
+        }
+    } else {
+        memcpy(c->data, data, data_len);
+        count = data_len / DATA_BLOCK_LEN;
+        if (count * DATA_BLOCK_LEN != data_len)
+            count++;
+    }
+    c->end_piece = c->start_piece + count;
+}
+inline static void get_cache(int id) {
+    _get_cache(id, NULL, 0);
+}
+
+/**
+ * Ф-ия рассчитывает хэш-сумму файла и сравнивает ее с пришедшей
+ * в структуре. В случае, если суммы совпадают, возвращает 0
+ */
+static int cmp_file_hash(struct cli_fields *f, int id) {
+    MD5_CTX md5;
+    FILE *file = f_descr.cache[id].file;
+    unsigned char data[sizeof(f_descr.cache[0].data) / 
+                       sizeof(*(f_descr.cache[0].data))];
+    unsigned char digest[MD5_DIGEST_LENGTH];
+    int i = 0;
+    unsigned long count;
+
+    MD5_Init(&md5);
+    do {
+        count = fread(data, sizeof(*data), sizeof(data) / sizeof(*data), file);
+        if (count) {
+            if (i++ == 0) {
+                f_descr.cache[id].start_piece = 0;
+                _get_cache(id, data, count);
+            }
+            MD5_Update(&md5, data, count);
+        }
+    } while (count);
+    MD5_Final(digest, &md5);
+
+    return memcmp(digest, f->hsumm, sizeof(digest) / sizeof(*digest));
+}
+
+/**
+ * Ф-ия ищет среди раздач подходящую для fname
+ * В случае успеха возвращает 1, иначе 0
+ */
+static int search_file(const char *fname, char *full_name,
+        int full_name_max_len) {
+    /* TODO */
+    if (full_name)
+        snprintf(full_name, full_name_max_len, "%s/%s", HOME_DIR_PATH, fname);
+    return 1;
+}
+
+/**
+ * Ф-ия добавляет в список передаваемых файлов
+ * новый элемент
+ * Возвращает номер передачи (индекс в массиве names
+ */
+static file_id_t add_transmission(struct cli_fields *f) {
+    int i, flag = 0;
+    file_id_t r = -1;
+    char filename[FULL_FILE_NAME_MAX_LEN];
+    for (i = 0; (r == -1) && (i < f_descr.count); i++) {
+        if (f_descr.positions[i] == 0)
+            r = i;
+    }
+    if (r < 0) {
+        r = f_descr.count;
+        flag = 1;
+    }
+    f->error = 0;
+    if (search_file(f->file_name, filename, FULL_FILE_NAME_MAX_LEN)) {
+        strncpy(f_descr.cache[r].name, f->file_name, FILE_NAME_MAX_LEN);
+        f_descr.cache[r].file = fopen(filename, "rb");
+        if (!f_descr.cache[r].file) {
+            r = -1;
+            err_n(SERVER, "%s: fopen failure", f->file_name);
+            f->error = set_bit(f->error, PE_FOPEN_FAILURE);
+        } else {
+            if (cmp_file_hash(f, r)) {
+                log(SERVER, "File hash comparing failure");
+                f->error = set_bit(f->error, PE_HASH_CMP_FAILURE);
+                r = -1;
+            } else {
+                f_descr.positions[r] = 1;
+                if (flag)
+                    f_descr.count++;
+            }
+        }
+    } else {
+        r = -1;
+        log(SERVER, "%s: file not exists", f->file_name);
+        f->error = set_bit(f->error, PE_FILE_NOT_EXISTS);
+    }
+    return r;
+}
+
+static void read_file_piece(struct srv_fields *f) {
+    
+}
+
+/**
+ * Ф-ия вызывается при завершении передачи
+ */
+static void remove_transmission(struct cli_fields *f) {
+    int i;
+
+    fclose(f_descr.cache[f->file_id].file);
+    f_descr.positions[f->file_id] = 0;
+
+    for (i = f_descr.count; i >= 0; i--) {
+        if (f_descr.positions[i] == 0)
+            f_descr.count--;
+        else
+            i = -1;
+    }
+}
+
+static void process_cli_msg(struct srv_fields *f) {
+    struct cli_fields *cf = &(f->cli_field);
+    file_id_t fid = cf->file_id;
+
+    if (get_bit(cf->error, PE_TRNMS_CMPL))
+        remove_transmission(cf);
+    else {
+        if (fid == -1) {
+            fid = add_transmission(cf);
+            if (fid == -1) {
+                log(SERVER, "Transmission adding failure");
+                return;
+            }
+            cf->file_id = fid;
+        }
+        read_file_piece(f);
+    }
+}
+
+static void send_answer(const struct srv_fields *f, int sock) {
+    size_t msg_len;
+    char msg[BUF_MAX_LEN];
+
+    msg_len = decode_srv_msg(f, msg);
+    send(sock, msg, msg_len, 0);
+}
+
+int process_client_message(int sender_sock, const char *msg, size_t count) {
+    struct srv_fields f;
+    int r;
+
+    r = encode_cli_msg(&(f.cli_field), msg, count);
+    if (r)
+        err(SERVER, "Encoding cli message failure");
+    else {
+        process_cli_msg(&f);
+        send_answer(&f, sender_sock);
+    }
+    return r;
 }

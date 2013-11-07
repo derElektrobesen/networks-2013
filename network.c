@@ -138,7 +138,7 @@ static int create_client(const char *addr) {
 static int process_sockets(fd_set *set, socket_callback callback,
         int *opened_sockets, int *max_index) {
     int i;
-    ssize_t bytes_read;
+    size_t bytes_read;
     char buf[BUF_MAX_LEN];
     int offset;
     int max_sock = -1;
@@ -519,7 +519,7 @@ static int process_broadcast_servers(int sock, struct sockets_queue *q) {
  * Вызывается callback-функция для обработки сообщения.
  */
 static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback callback) {
-    ssize_t bytes_read;
+    size_t bytes_read;
     char msg[BUF_MAX_LEN];
     int i, offset;
 

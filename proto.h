@@ -12,7 +12,7 @@
 
 typedef unsigned int pack_id_t;
 typedef unsigned int piece_id_t;
-typedef unsigned int file_id_t;
+typedef signed int file_id_t;
 typedef unsigned short perror_t;
 
 #define PACK_ID_TSIZE sizeof(pack_id_t)
@@ -21,6 +21,13 @@ typedef unsigned short perror_t;
 #define PIECE_LEN_TSIZE sizeof(size_t)
 #define PROTOCOL_ERROR_TSIZE sizeof(perror_t)
 
+/**
+ * Номера битов, которые отвечают за конкретные ошибки
+ */
+#define PE_FOPEN_FAILURE        0
+#define PE_FILE_NOT_EXISTS      1
+#define PE_HASH_CMP_FAILURE     2
+#define PE_TRNMS_CMPL           3       /** Передача завершена */
 
 struct cli_fields {
     pack_id_t pack_id;
@@ -40,9 +47,9 @@ struct srv_fields {
 };
 
 /* TODO: Fix msg_len bug */
-int encode_cli_msg(struct cli_fields *fields, const char *msg, ssize_t msg_len);
+int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len);
 size_t decode_cli_msg(const struct cli_fields *fields, char *msg);
-int encode_srv_msg(struct srv_fields *fields, const char *msg, ssize_t msg_len);
+int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len);
 size_t decode_srv_msg(const struct srv_fields *fields, char *msg);
 
 #endif
