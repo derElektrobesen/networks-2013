@@ -5,17 +5,24 @@
 
 #   include "cli.h"
 
+struct sockets_queue q;
+
+void start(int sig) {
+    recieve_file("file", (const unsigned char *)"3dfec437ab061d838bbbc4ca1fd2dfcf", 10, &q);
+}
+
 int main(int argc, char **argv) {
-    struct sockets_queue q;
 
 #ifdef DONT_DO_SRAND
     srand(1);
 #else
     srand(time(NULL));
 #endif
-
+    signal(SIGUSR1, &start);
     return start_client(&process_srv_message, &main_dispatcher, &q);
 }
+
+
 
 #elif defined SRV
 #   include "srv.h"
