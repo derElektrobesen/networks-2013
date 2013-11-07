@@ -30,7 +30,7 @@ unsigned int get_hex(const char *msg, int n) {
  * Заполнение структуры cli_fields клиентом
  * Протокол получен от сервера
  */
-int encode_cli_msg(struct cli_fields *fields, const char *msg, ssize_t msg_len) {
+int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len) {
     int r = 0;
     unsigned int e = 0;
     const char *p = msg;
@@ -54,7 +54,7 @@ int encode_cli_msg(struct cli_fields *fields, const char *msg, ssize_t msg_len) 
  * Заполнение структуры srv_fields сервером
  * Протокол получен от клиента
  */
-int encode_srv_msg(struct srv_fields *fields, const char *msg, ssize_t msg_len) {
+int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len) {
     int r = 0;
     unsigned int e = 0;
     const char *p = msg;
