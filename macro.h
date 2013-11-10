@@ -28,30 +28,39 @@
 #   define err_n(cli, f_str, args...) \
         err(cli, f_str " : %s", ##args, strerror(errno)) /* \n don't needed */
 #   define locate log(OTHER, "%s, %d", __FUNCTION__, __LINE__)
-#   define log_cli_fields(f_ptr) \
+#   define convert_hex_str(buf, buflen, str, len) {             \
+        int i; char *ptr = (buf);                               \
+        for (i = 0; i < (len); i++) {                           \
+            snprintf(ptr, (buflen) - i * 3, " %02x", (str)[i]);  \
+            ptr += 3;                                           \
+        }                                                       \
+    }
+#   define print_hex_str(msg, str, len) {                       \
+        char r[255];                                            \
+        convert_hex_str(r, sizeof(r), str, len);                \
+        log(OTHER, "%s: %s", msg, r);                           \
+    }
+#   define log_cli_fields(f_ptr) {                              \
+        char r[255];                                            \
+        convert_hex_str(r, sizeof(r), (f_ptr)->hsumm, MD5_DIGEST_LENGTH); \
         log(OTHER, "pack_id: %d, piece_id: %d, file_id: %d, "   \
-                   "error: %d, hsumm: %.16s, fname: %s",        \
+                   "error: %d, hsumm: %s, fname: %s",           \
                    (f_ptr)->pack_id, (f_ptr)->piece_id,         \
                    (f_ptr)->file_id, (f_ptr)->error,            \
-                   (f_ptr)->hsumm, (f_ptr)->file_name)
-
-#   define log_srv_fields(f_ptr) \
+                   r, (f_ptr)->file_name);                      \
+    }
+#   define log_srv_fields(f_ptr) {                              \
+        char r[255];                                            \
+        convert_hex_str(r, sizeof(r), (f_ptr)->cli_field.hsumm, MD5_DIGEST_LENGTH); \
         log(OTHER, "pack_id: %d, piece_id: %d, file_id: %d, "   \
-                   "error: %d, piece_len: %lu, hsumm: %.16s, fname: %s", \
+                   "error: %d, piece_len: %lu, hsumm: %s, fname: %s", \
                    (f_ptr)->cli_field.pack_id,                  \
                    (f_ptr)->cli_field.piece_id,                 \
                    (f_ptr)->cli_field.file_id,                  \
                    (f_ptr)->cli_field.error,                    \
                    (f_ptr)->piece_len,                          \
-                   (f_ptr)->cli_field.hsumm,                    \
-                   (f_ptr)->cli_field.file_name)
-#   define print_hex_str(msg, str, len) {                       \
-        int i; char r[255]; char *ptr = r;                      \
-        for (i = 0; i < len; i++) {                             \
-            snprintf(ptr, 255 - i * 3, " %2x", str[i]);         \
-            ptr += 3;                                           \
-        }                                                       \
-        log(OTHER, "%s: %s", msg, r);                           \
+                   r,                                           \
+                   (f_ptr)->cli_field.file_name);               \
     }
 
 #else  /* DEBUG is undefined */
@@ -61,7 +70,8 @@
 #   define locate
 #   define log_cli_fields(...)
 #   define log_srv_fields(...)
-#   define print_hext_str(...)
+#   define convert_hex_str(...)
+#   define print_hex_str(...)
 #endif /* DEBUG */
 
 #define m_alloc(type, count) ((type *)malloc(sizeof(type) * (count)))

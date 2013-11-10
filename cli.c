@@ -146,7 +146,7 @@ static int add_transmission(const char *filename,
         trm = t->trm + r;
         strncpy(trm->filename, filename, FILE_NAME_MAX_LEN);
         memcpy(trm->filesum, filesum, MD5_DIGEST_LENGTH);
-        log(CLIENT, "copied hsumm: %s", trm->filesum);
+        print_hex_str("copied hsumm", trm->filesum, MD5_DIGEST_LENGTH);
         trm->filesize = file_size;
         trm->status = TRM_WAITING_SERVERS;
 
