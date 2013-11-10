@@ -173,12 +173,14 @@ static void send_answer(const struct srv_fields *f, int sock) {
     char msg[BUF_MAX_LEN];
 
     msg_len = decode_srv_msg(f, msg);
+    log_srv_fields(f);
     send(sock, msg, msg_len, 0);
 }
 
 int process_client_message(int sender_sock, const char *msg, size_t count) {
     struct srv_fields f;
     int r;
+
 
     log(SERVER, "message recieved from socket %d", sender_sock);
     r = encode_cli_msg(&(f.cli_field), msg, count);
