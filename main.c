@@ -9,7 +9,8 @@ struct sockets_queue q;
 
 void start(int sig) {
     //recieve_file("file", (const unsigned char *)"\x3d\xfe\xc4\x37\xab\x06\x1d\x83\x8b\xbb\xc4\xca\x1f\xd2\xdf\xcf", 10, &q);
-    recieve_file("RobertLove.pdf", (const unsigned char *)"\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\x09\x98\xec\xf8\x42\x7e", 3244909, &q);
+    //recieve_file("RobertLove.pdf", (const unsigned char *)"\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\x09\x98\xec\xf8\x42\x7e", 3244909, &q);
+    recieve_file("RobertLove.pdf", (const unsigned char *)"\x19\x01\x67\x36\x6f\x14\xce\x7e\x9b\x26\x8d\x72\xad\x87\xf1\x48", 3244909, &q);
 }
 
 int main(int argc, char **argv) {

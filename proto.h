@@ -28,6 +28,7 @@ typedef unsigned short perror_t;
 #define PE_FILE_NOT_EXISTS      1
 #define PE_HASH_CMP_FAILURE     2
 #define PE_TRNMS_CMPL           3       /** Передача завершена */
+#define PE_READ_ACCESS_DENIED   4
 
 struct cli_fields {
     pack_id_t pack_id;
@@ -46,10 +47,11 @@ struct srv_fields {
     unsigned char piece[DATA_BLOCK_LEN];
 };
 
-/* TODO: Fix msg_len bug */
 int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len);
 size_t decode_cli_msg(const struct cli_fields *fields, char *msg);
 int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len);
 size_t decode_srv_msg(const struct srv_fields *fields, char *msg);
+
+void decode_proto_error(perror_t e, char *s, int max_len);
 
 #endif

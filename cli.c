@@ -32,7 +32,7 @@ static int require_piece(struct cli_fields *f, struct active_connection *con) {
     } else {
         log(CLIENT, "sending message");
         log_cli_fields(f);
-        log(CLIENT, "bytes send: %u", msg_len);
+        log(CLIENT, "bytes send: %lu", msg_len);
         if (send(con->srv_sock, msg, msg_len, 0) < 0) {
             err_n(CLIENT, "send failure");
             r = TRME_SOCKET_FAILURE;
@@ -64,7 +64,8 @@ static int process_timeouts(struct active_connection *con) {
                 q->cur_piece = con->piece_id;
         } else
             q->failed_pieces[q->max_failed_piece_num++] = q->cur_piece;
-    }
+    } else if (con->status == SRV_READY)
+        r = 1;
     return r;
 }
 
@@ -133,7 +134,6 @@ static int add_transmission(const char *filename,
         trm = t->trm + r;
         strncpy(trm->filename, filename, FILE_NAME_MAX_LEN);
         memcpy(trm->filesum, filesum, MD5_DIGEST_LENGTH);
-        print_hex_str("copied hsumm", trm->filesum, MD5_DIGEST_LENGTH);
         trm->filesize = file_size;
         trm->status = TRM_WAITING_SERVERS;
 
@@ -150,10 +150,49 @@ static int add_transmission(const char *filename,
 }
 
 /**
+ * Ф-ия меняет указатели для q и освобождает из под него память
+ * Возвращает следующий по списку элемент
+ */
+inline static struct active_connection *free_con_ptr(struct active_connection *q) {
+    struct active_connection *t = q->next;
+    if (q->next)
+        q->next->prev = q->prev;
+    else
+        q_descr.q_tail = q->prev;
+    if (q->prev)
+        q->prev->next = q->next;
+    else
+        q_descr.q_head = q->next;
+    free(q);
+    return t;
+}
+
+/**
+ * Ф-ия удаляет соединение (на случай ошибки на стороне сервера) из
+ * списка
+ */
+static void remove_connection(struct active_connection *c) {
+    int f = 0;
+    struct active_connection *q = q_descr.q_head;
+
+    while (!f && q) {
+        if (q != c && q->transmission_id == c->transmission_id)
+            f = 1;
+    }
+    if (!f) {
+        t_descr.count--;
+        fclose(t_descr.trm[c->transmission_id].file);
+        t_descr.openned_trms[c->transmission_id] = 1;
+        free(c->data);
+    }
+    free_con_ptr(c);
+}
+
+/**
  * Удаляет из списка активных передач передачу номер tr_id
  */
 static void remove_transmission(int tr_id) {
-    struct active_connection *q = q_descr.q_head, *tmp;
+    struct active_connection *q = q_descr.q_head;
     int pirate = 1;
 
     t_descr.count--;
@@ -166,17 +205,7 @@ static void remove_transmission(int tr_id) {
                 free(q->data);
                 pirate = 0;
             }
-            if (q->next)
-                q->next->prev = q->prev;
-            else
-                q_descr.q_tail = q->prev;
-            if (q->prev)
-                q->prev->next = q->next;
-            else
-                q_descr.q_head = q->next;
-            tmp = q->next;
-            free(q);
-            q = tmp;
+            q = free_con_ptr(q);
         }
     }
 }
@@ -278,7 +307,6 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
     while (!r && con) {
         if (con->srv_sock == sock &&
             con->pack_id == f->pack_id &&
-            con->file_id == f->file_id &&
             con->piece_id == f->piece_id)
             r = con;
         con = con->next;
@@ -338,7 +366,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
 
     if (d->pieces_copied == d->f_piece - d->s_piece) {
         /* Данные можно сбрасывать на жесткий диск */
-        log(SERVER, "writing %d bytes", d->full_size);
+        log(SERVER, "writing %lu bytes", d->full_size);
         if (!fwrite(d->data, sizeof(d->data[0]), d->full_size, file))
             err_n(CLIENT, "fwrite failure");
 
@@ -376,11 +404,18 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
 static void process_recieved_piece(const struct srv_fields *f,
         struct active_connection *con) {
     struct transmission *t = t_descr.trm + con->transmission_id;
+    char err_msg[255];
 
     con->status = SRV_READY;
-    push_file_data(con->data, f, t);
-    if (flush_file_data(con->data, t->file, t->pieces.max_piece_num, t))
-        remove_transmission(con->transmission_id);
+    if (f->cli_field.file_id < 0) {
+        decode_proto_error(f->cli_field.error, err_msg, sizeof(err_msg));
+        err(CLIENT, "transmission failure: %s", err_msg);
+        remove_connection(con);
+    } else {
+        push_file_data(con->data, f, t);
+        if (flush_file_data(con->data, t->file, t->pieces.max_piece_num, t))
+            remove_transmission(con->transmission_id);
+    }
 }
 
 /**

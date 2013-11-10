@@ -108,3 +108,26 @@ size_t decode_srv_msg(const struct srv_fields *fields, char *msg) {
     return msg_length;
 }
 
+inline void decode_proto_error(perror_t e, char *s, int max_len) {
+    int f = 0, st = 0;
+    if (get_bit(e, PE_FOPEN_FAILURE)) {
+        f = snprintf(s, max_len, "%s", "fopen failure");
+        s += f;
+        st = f;
+    }
+    if (get_bit(e, PE_FILE_NOT_EXISTS)) {
+        f = snprintf(s, max_len - st, "%s%s", f ? ", " : "",
+                "file not exists");
+        st += f;
+        s += f;
+    }
+    if (get_bit(e, PE_READ_ACCESS_DENIED)) {
+        f = snprintf(s, max_len - st, "%s%s", f ? ", " : "",
+                "read access denied");
+        st += f;
+        s += f;
+    }
+    if (get_bit(e, PE_HASH_CMP_FAILURE))
+        f = snprintf(s, max_len - st, "%s%s", f ? ", " : "",
+                "hash comparison failure");
+}

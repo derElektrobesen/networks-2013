@@ -26,8 +26,7 @@ static void _get_cache(int id, const unsigned char *data,
     } else {
         locate;
         memcpy(c->data, data, data_len);
-        count = data_len / DATA_BLOCK_LEN;
-        if (count * DATA_BLOCK_LEN != data_len)
+        if (!(count = data_len / DATA_BLOCK_LEN))
             count++;
         log(SERVER, "pieces_count: %lu", count);
     }
@@ -70,11 +69,16 @@ static int cmp_file_hash(const struct cli_fields *f, int id) {
 static int search_file(const char *fname, char *full_name,
         int full_name_max_len) {
     /* TODO */
+    int r = 0;
     locate;
     if (full_name)
         snprintf(full_name, full_name_max_len, "%s/%s", HOME_DIR_PATH, fname);
     log(SERVER, "full file name: %s", full_name);
-    return 1;
+    if (access(full_name, F_OK) != 0)
+        r = set_bit(r, PE_FILE_NOT_EXISTS);
+    else if (access(full_name, R_OK) != 0)
+        r = set_bit(r, PE_READ_ACCESS_DENIED);
+    return r;
 }
 
 /**
@@ -83,8 +87,9 @@ static int search_file(const char *fname, char *full_name,
  * Возвращает номер передачи (индекс в массиве names)
  */
 static file_id_t add_transmission(struct cli_fields *f) {
-    int i, flag = 0;
+    int i, flag = 0, stat;
     file_id_t r = -1;
+    char buf[255];
     char filename[FULL_FILE_NAME_MAX_LEN];
     for (i = 0; (r == -1) && (i < f_descr.count); i++) {
         if (f_descr.positions[i] == 0)
@@ -96,8 +101,8 @@ static file_id_t add_transmission(struct cli_fields *f) {
     }
     f->error = 0;
     locate;
-    if (search_file(f->file_name, filename, FULL_FILE_NAME_MAX_LEN)) {
-        strncpy(f_descr.cache[r].name, f->file_name, FILE_NAME_MAX_LEN);
+    if (!(stat = search_file(f->file_name, filename, sizeof(filename)))) {
+        strncpy(f_descr.cache[r].name, f->file_name, sizeof(f->file_name));
         f_descr.cache[r].file = fopen(filename, "rb");
         if (!f_descr.cache[r].file) {
             r = -1;
@@ -122,8 +127,9 @@ static file_id_t add_transmission(struct cli_fields *f) {
         }
     } else {
         r = -1;
-        log(SERVER, "%s: file not exists", f->file_name);
-        f->error = set_bit(f->error, PE_FILE_NOT_EXISTS);
+        f->error |= stat;
+        decode_proto_error(stat, buf, sizeof(buf));
+        log(SERVER, "%s: %s", f->file_name, buf);
     }
     return r;
 }
@@ -132,8 +138,8 @@ static void read_file_piece(struct srv_fields *f) {
     int piece_id = f->cli_field.piece_id,
         file_id = f->cli_field.file_id;
     struct file_cache *c = &(f_descr.cache[file_id]);
-    if (c->start_piece < piece_id || c->end_piece > file_id) {
-        if (c->start_piece < piece_id)
+    if (c->start_piece > piece_id || c->end_piece < piece_id) {
+        if (c->start_piece > piece_id)
             c->start_piece = piece_id;
         get_cache(file_id);
     }
@@ -186,7 +192,7 @@ static void send_answer(const struct srv_fields *f, int sock) {
     msg_len = decode_srv_msg(f, msg);
     log(SERVER, "sending by server");
     log_srv_fields(f);
-    log(SERVER, "bytes send: %u", msg_len);
+    log(SERVER, "bytes send: %lu", msg_len);
     send(sock, msg, msg_len, 0);
 }
 

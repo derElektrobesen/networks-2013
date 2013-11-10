@@ -150,7 +150,7 @@ static ssize_t recieve_data(int sock, char *buf, size_t len) {
     ssize_t rlen = 0;
     char *tmp = buf;
 
-    while ((offset = recv(sock, tmp, len - offset, 0))) {
+    while ((offset = recv(sock, tmp, len - offset, 0)) > 0) {
         tmp += offset;
         rlen += offset;
     }
@@ -175,9 +175,9 @@ static int process_sockets(fd_set *set, socket_callback callback,
         if (max_sock < *(opened_sockets + i))
             max_sock = *(opened_sockets + i);
         if (FD_ISSET(*(opened_sockets + i), set)) {
-            bytes_read = recieve_data(*(opened_sockets + i), buf, BUF_MAX_LEN);
+            bytes_read = recieve_data(*(opened_sockets + i), buf, sizeof(buf));
             locate;
-            log(OTHER, "bytes recieved: %d", bytes_read);
+            log(OTHER, "bytes recieved: %lu", bytes_read);
             if (bytes_read <= 0) {
                 log(CLIENT, "connection closed: %d", *(opened_sockets + i));
                 close(*(opened_sockets + i));
@@ -557,9 +557,9 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
             q->addrs[i] = q->addrs[i + offset];
         }
         if (FD_ISSET(q->sockets[i], set)) {
-            bytes_read = recieve_data(q->sockets[i], msg, BUF_MAX_LEN);
+            bytes_read = recieve_data(q->sockets[i], msg, sizeof(msg));
             locate;
-            log(OTHER, "bytes read: %d", bytes_read);
+            log(OTHER, "bytes read: %lu", bytes_read);
             if (bytes_read <= 0) {
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;
