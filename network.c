@@ -60,7 +60,7 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
  */
 static int make_sock_nonblock(int sock) {
     int e = 0;
-    //e = fcntl(sock, F_SETFL, O_NONBLOCK);
+    e = fcntl(sock, F_SETFL, O_NONBLOCK);
     if (e < 0)
         err_n(-1, "fcntl failure");
     return e;
@@ -143,6 +143,21 @@ static int create_client(const char *addr) {
 }
 
 /**
+ * Ф-ия ожидает получения всего куска данных
+ */
+static ssize_t recieve_data(int sock, char *buf, size_t len) {
+    ssize_t offset = 0;
+    ssize_t rlen = 0;
+    char *tmp = buf;
+
+    while ((offset = recv(sock, tmp, len - offset, 0))) {
+        tmp += offset;
+        rlen += offset;
+    }
+    return rlen;
+}
+
+/**
  * Получает сообщение от сокета, на котором возникло некоторое событие
  * и обрабатывает его. Удаляет сокет из массива в случае разрыва соединения.
  */
@@ -160,7 +175,7 @@ static int process_sockets(fd_set *set, socket_callback callback,
         if (max_sock < *(opened_sockets + i))
             max_sock = *(opened_sockets + i);
         if (FD_ISSET(*(opened_sockets + i), set)) {
-            bytes_read = recv(*(opened_sockets + i), buf, BUF_MAX_LEN, MSG_WAITALL);
+            bytes_read = recieve_data(*(opened_sockets + i), buf, BUF_MAX_LEN);
             locate;
             log(OTHER, "bytes recieved: %d", bytes_read);
             if (bytes_read <= 0) {
@@ -542,7 +557,7 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
             q->addrs[i] = q->addrs[i + offset];
         }
         if (FD_ISSET(q->sockets[i], set)) {
-            bytes_read = recv(q->sockets[i], msg, BUF_MAX_LEN, MSG_WAITALL);
+            bytes_read = recieve_data(q->sockets[i], msg, BUF_MAX_LEN);
             locate;
             log(OTHER, "bytes read: %d", bytes_read);
             if (bytes_read <= 0) {
