@@ -59,8 +59,8 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
  * неблокирующего ввода\вывода для сокета.
  */
 static int make_sock_nonblock(int sock) {
-    int e;
-    e = fcntl(sock, F_SETFL, O_NONBLOCK);
+    int e = 0;
+    //e = fcntl(sock, F_SETFL, O_NONBLOCK);
     if (e < 0)
         err_n(-1, "fcntl failure");
     return e;
