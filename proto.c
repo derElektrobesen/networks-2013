@@ -22,7 +22,7 @@ int get_hash(struct cli_fields *fields, unsigned char *md5digest) {
  */
 int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len) {
     int r = 0;
-    unsigned int e = 0;
+    perror_t e = 0;
     const char *p = msg;
     if (msg_len == 0) {
         err(OTHER, "Message incorrect size");
@@ -45,7 +45,7 @@ int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len) {
  */
 int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len) {
     int r = 0;
-    unsigned int e = 0;
+    perror_t e = 0;
     const char *p = msg;
     if (msg_len == 0) {
         err(OTHER, "Message incorrect length");
@@ -81,9 +81,10 @@ size_t decode_cli_msg(const struct cli_fields *fields, char *msg) {
     memcpy(msg+=PACK_ID_TSIZE, &(fields->piece_id), PIECE_NUM_TSIZE);
     memcpy(msg+=PIECE_NUM_TSIZE, &(fields->file_id), FILE_NUM_TSIZE);
     memcpy(msg+=FILE_NUM_TSIZE, &(fields->hsumm), MD5_DIGEST_LENGTH);
-    msg = strncpy(msg+=MD5_DIGEST_LENGTH, fields->file_name,FILE_NAME_MAX_LEN);
+    msg = strncpy(msg+=MD5_DIGEST_LENGTH, fields->file_name, FILE_NAME_MAX_LEN);
     p_end = msg + FILE_NAME_MAX_LEN;
-    msg_length = (p_end - p_start) / sizeof(char);
+    msg_length = (p_end - p_start) / sizeof(*msg);
+    log(CLIENT, "***** proto: message length = %d",msg_length); 
     return msg_length;
 }
 
@@ -106,11 +107,12 @@ size_t decode_srv_msg(const struct srv_fields *fields, char *msg) {
             FILE_NUM_TSIZE);
     memcpy(msg+=FILE_NUM_TSIZE,
             &(fields->cli_field.hsumm), MD5_DIGEST_LENGTH);
-    msg = strncpy(msg+=MD5_DIGEST_LENGTH,
+    strncpy(msg+=MD5_DIGEST_LENGTH,
             fields->cli_field.file_name, FILE_NAME_MAX_LEN);
     memcpy(msg+=FILE_NAME_MAX_LEN, fields->piece, fields->piece_len);
     p_end = msg + fields->piece_len;
     msg_length = (p_end - p_start) / sizeof(*msg);
+    log(SERVER, "***** proto: message length = %d", msg_length);
     return msg_length;
 }
 
