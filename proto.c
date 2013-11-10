@@ -28,7 +28,6 @@ int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len) {
         err(OTHER, "Message incorrect size");
         return -1;
     }
-    log(OTHER, "message length given: %d (%d)", msg_len, __LINE__);
     memcpy(&e, p, PROTOCOL_ERROR_TSIZE);
     memcpy(&(fields->pack_id), p+=PROTOCOL_ERROR_TSIZE, PACK_ID_TSIZE); 
     memcpy(&(fields->piece_id), p+=PACK_ID_TSIZE, PIECE_NUM_TSIZE);
@@ -53,7 +52,6 @@ int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len) {
         return -1;
     }
 
-    log(OTHER, "message length given: %d (%d)", msg_len, __LINE__);
     memcpy(&e, p, PROTOCOL_ERROR_TSIZE);
     memcpy(&(fields->cli_field.pack_id), p+=PROTOCOL_ERROR_TSIZE, PACK_ID_TSIZE); 
     memcpy(&(fields->cli_field.piece_id), p+=PACK_ID_TSIZE, PIECE_NUM_TSIZE);
@@ -84,7 +82,6 @@ size_t decode_cli_msg(const struct cli_fields *fields, char *msg) {
     msg = strncpy(msg+=MD5_DIGEST_LENGTH, fields->file_name, FILE_NAME_MAX_LEN);
     p_end = msg + FILE_NAME_MAX_LEN;
     msg_length = (p_end - p_start) / sizeof(*msg);
-    log(OTHER, "message length: %d (%d)", msg_length, __LINE__);
     return msg_length;
 }
 
@@ -108,7 +105,6 @@ size_t decode_srv_msg(const struct srv_fields *fields, char *msg) {
 
     p_end = msg + fields->piece_len;
     msg_length = (p_end - p_start) / sizeof(*msg);
-    log(OTHER, "message length: %d (%d)", msg_length, __LINE__);
     return msg_length;
 }
 

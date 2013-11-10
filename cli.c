@@ -32,6 +32,7 @@ static int require_piece(struct cli_fields *f, struct active_connection *con) {
     } else {
         log(CLIENT, "sending message");
         log_cli_fields(f);
+        log(CLIENT, "bytes send: %u", msg_len);
         if (send(con->srv_sock, msg, msg_len, 0) < 0) {
             err_n(CLIENT, "send failure");
             r = TRME_SOCKET_FAILURE;
@@ -103,6 +104,7 @@ static void request_piece(struct active_connection *con) {
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
         /* TODO: Обработать ошибки */
+        locate;
         require_piece(&f, con);
     }
 }
@@ -155,6 +157,7 @@ static void remove_transmission(int tr_id) {
     int pirate = 1;
 
     t_descr.count--;
+    fclose(t_descr.trm[tr_id].file);
     t_descr.openned_trms[tr_id] = 1;
 
     while (q) {
@@ -234,7 +237,7 @@ static int start_transmission(int transmission_id,
         data->data.s_piece = 0;
         data->data.f_piece = t->pieces.max_piece_num;
 
-        t->file = fopen(fname, "wb");
+        t->file = fopen(fname, "w");
         if (!t->file) {
             err_n(CLIENT, "fopen failure");
             r = TRME_FILE_ERROR;
@@ -249,6 +252,7 @@ static int start_transmission(int transmission_id,
             if (con) {
                 f.piece_id = i;
                 /* TODO: Обработать исключительные ситуации */
+                locate;
                 if (require_piece(&f, con) == 0) {
                     req_count++;
                     t->pieces.cur_piece++;
@@ -279,7 +283,6 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
             r = con;
         con = con->next;
     }
-    locate;
     return r;
 }
 
@@ -298,7 +301,7 @@ static void push_file_data(struct file_full_data_t *data,
     if (cli->piece_id == t->pieces.max_piece_num - 1)
         piece_len = t->filesize - (cli->piece_id * DATA_BLOCK_LEN);
 
-    if (cli->piece_id > data->data.f_piece) {
+    if (cli->piece_id >= data->data.f_piece) {
         /* Откладываем данные до лучших времен */
         ud = data->udata;
         for (i = 0; i < sizeof(data->udata) / sizeof(*ud); i++) {
@@ -331,12 +334,13 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
         piece_id_t max_piece_num, const struct transmission *t) {
     struct file_data_t *d = &(data->data);
     struct file_udata_t *ud;
-    int i, r = 0;
+    int i, r = 0, st = 0;
 
     if (d->pieces_copied == d->f_piece - d->s_piece) {
         /* Данные можно сбрасывать на жесткий диск */
         log(SERVER, "writing %d bytes", d->full_size);
-        fwrite(d->data, sizeof(d->data[0]), d->full_size, file);
+        if (!fwrite(d->data, sizeof(d->data[0]), d->full_size, file))
+            err_n(CLIENT, "fwrite failure");
 
         d->s_piece = d->f_piece + 1;
         d->pieces_copied = 0;
@@ -348,6 +352,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
         ud = data->udata;
         for (i = 0; i < sizeof(data->udata) / sizeof(*ud); i++) {
             if (ud->piece_len != 0 && ud->piece_id < d->f_piece) {
+                st = 1;
                 d->pieces_copied++;
                 d->full_size += ud->piece_len;
                 memcpy(d->data + (ud->piece_id - d->s_piece), ud->data, ud->piece_len);
@@ -357,7 +362,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
         }
     }
 
-    if (d->full_size == t->filesize) {
+    if (!st && t->pieces.cur_piece == t->pieces.max_piece_num) {
         log(CLIENT, "recieve successfully completed");
         r = 1;
     }
@@ -372,12 +377,10 @@ static void process_recieved_piece(const struct srv_fields *f,
         struct active_connection *con) {
     struct transmission *t = t_descr.trm + con->transmission_id;
 
-    locate;
     con->status = SRV_READY;
     push_file_data(con->data, f, t);
     if (flush_file_data(con->data, t->file, t->pieces.max_piece_num, t))
         remove_transmission(con->transmission_id);
-    locate;
 }
 
 /**
@@ -427,7 +430,6 @@ int process_srv_message(int sock, const char *msg, size_t len) {
     log(CLIENT, "package recieved from server %d", sock);
     if ((r = encode_srv_msg(&fields, msg, len)) == 0) {
         log_srv_fields(&fields);
-        locate;
         if ((con = search_connection(sock, &(fields.cli_field))))
             process_recieved_piece(&fields, con);
         else

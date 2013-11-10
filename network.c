@@ -161,6 +161,8 @@ static int process_sockets(fd_set *set, socket_callback callback,
             max_sock = *(opened_sockets + i);
         if (FD_ISSET(*(opened_sockets + i), set)) {
             bytes_read = recv(*(opened_sockets + i), buf, BUF_MAX_LEN, MSG_WAITALL);
+            locate;
+            log(OTHER, "bytes recieved: %d", bytes_read);
             if (bytes_read <= 0) {
                 log(CLIENT, "connection closed: %d", *(opened_sockets + i));
                 close(*(opened_sockets + i));
@@ -541,6 +543,8 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
         }
         if (FD_ISSET(q->sockets[i], set)) {
             bytes_read = recv(q->sockets[i], msg, BUF_MAX_LEN, MSG_WAITALL);
+            locate;
+            log(OTHER, "bytes read: %d", bytes_read);
             if (bytes_read <= 0) {
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;
