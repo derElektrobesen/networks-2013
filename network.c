@@ -21,6 +21,7 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
     int sock = -1;
     int reuse = 1;
     int err_no;
+    int buf_len = BUF_MAX_LEN;
 
     sock = socket(AF_INET, proto, 0);
     if (sock < 0) {
@@ -33,7 +34,11 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
         err_no = errno;
         return init_server_err(sock, err_no);
     }
-
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &buf_len, sizeof(int)) < 0) {
+        err_n(SERVER, "setsockopt failure");
+        err_no = errno;
+        return init_server_err(sock, err_no);
+    }
     if (bind(sock, (struct sockaddr *)addr, sizeof(*addr)) < 0) {
         err_n(SERVER, "bind failure");
         err_no = errno;
@@ -99,6 +104,7 @@ static int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen
 static int create_client(const char *addr) {
     int sock;
     int err_no;
+    int buf_len = BUF_MAX_LEN;
     struct addrinfo hint;
     struct addrinfo *ailist;
     char port[4];
@@ -118,6 +124,11 @@ static int create_client(const char *addr) {
         err_no = errno;
         err_n(CLIENT, "socket failure");
         return init_client_err(-1, err_no);
+    }
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &buf_len, sizeof(int)) < 0) {
+        err_n(SERVER, "setsockopt failure");
+        err_no = errno;
+        return init_server_err(sock, err_no);
     }
 
     make_sock_nonblock(sock);
@@ -149,7 +160,7 @@ static int process_sockets(fd_set *set, socket_callback callback,
         if (max_sock < *(opened_sockets + i))
             max_sock = *(opened_sockets + i);
         if (FD_ISSET(*(opened_sockets + i), set)) {
-            bytes_read = recv(*(opened_sockets + i), buf, BUF_MAX_LEN, 0);
+            bytes_read = recv(*(opened_sockets + i), buf, BUF_MAX_LEN, MSG_WAITALL);
             if (bytes_read <= 0) {
                 log(CLIENT, "connection closed: %d", *(opened_sockets + i));
                 close(*(opened_sockets + i));
@@ -529,7 +540,7 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
             q->addrs[i] = q->addrs[i + offset];
         }
         if (FD_ISSET(q->sockets[i], set)) {
-            bytes_read = recv(q->sockets[i], msg, BUF_MAX_LEN, 0);
+            bytes_read = recv(q->sockets[i], msg, BUF_MAX_LEN, MSG_WAITALL);
             if (bytes_read <= 0) {
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;

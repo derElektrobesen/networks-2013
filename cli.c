@@ -30,6 +30,8 @@ static int require_piece(struct cli_fields *f, struct active_connection *con) {
         err(CLIENT, "decode message error");
         r = TRME_DECODE_ERR;
     } else {
+        log(CLIENT, "sending message");
+        log_cli_fields(f);
         if (send(con->srv_sock, msg, msg_len, 0) < 0) {
             err_n(CLIENT, "send failure");
             r = TRME_SOCKET_FAILURE;
@@ -52,7 +54,7 @@ static int process_timeouts(struct active_connection *con) {
     if (con->timeout-- <= 0) {
         log(CLIENT, "timeout on %d socket", con->srv_sock);
         r = 1;
-        con->status = TRM_UNKN;
+        con->status = SRV_READY;
         q = &((t_descr.trm + con->transmission_id)->pieces);
         if (con->piece_id == q->cur_piece - 1)
             q->cur_piece--;
@@ -69,11 +71,10 @@ static int process_timeouts(struct active_connection *con) {
  * Ф-ия запрашивает очередной кусок.
  * Возвращает указатель на следующий элемент для обработки
  */
-static struct active_connection *request_piece(struct active_connection *con) {
+static void request_piece(struct active_connection *con) {
     struct pieces_queue *q;
     struct transmission *t;
     struct cli_fields f;
-    struct active_connection *tmp = NULL;
     piece_id_t piece;
     int i, j;
 
@@ -95,31 +96,15 @@ static struct active_connection *request_piece(struct active_connection *con) {
         } else
             piece = q->cur_piece++;
 
-        if (piece >= q->max_piece_num) {
-            log(CLIENT, "transmission complete");
-            /* Файл полностью передан */
-            if (con->next)
-                con->next->prev = con->prev;
-            else
-                q_descr.q_tail = con->prev;
-            if (con->prev)
-                con->prev->next = con->next;
-            else
-                q_descr.q_head = con->next;
-            tmp = con;
-            free(con);
-        } else {
-            log(CLIENT, "require new piece with id %d", piece);
-            f.piece_id = piece;
-            /* TODO */
-            strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
-            memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
+        log(CLIENT, "require piece with id %d", piece);
+        f.piece_id = piece;
+        /* TODO */
+        strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
+        memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
-            /* TODO: Обработать ошибки */
-            require_piece(&f, con);
-        }
+        /* TODO: Обработать ошибки */
+        require_piece(&f, con);
     }
-    return tmp ? con : con->next;
 }
 
 /**
@@ -166,8 +151,31 @@ static int add_transmission(const char *filename,
  * Удаляет из списка активных передач передачу номер tr_id
  */
 static void remove_transmission(int tr_id) {
+    struct active_connection *q = q_descr.q_head, *tmp;
+    int pirate = 1;
+
     t_descr.count--;
     t_descr.openned_trms[tr_id] = 1;
+
+    while (q) {
+        if (q->transmission_id == tr_id) {
+            if (pirate) {
+                free(q->data);
+                pirate = 0;
+            }
+            if (q->next)
+                q->next->prev = q->prev;
+            else
+                q_descr.q_tail = q->prev;
+            if (q->prev)
+                q->prev->next = q->next;
+            else
+                q_descr.q_head = q->next;
+            tmp = q->next;
+            free(q);
+            q = tmp;
+        }
+    }
 }
 
 /**
@@ -221,7 +229,7 @@ static int start_transmission(int transmission_id,
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
         for (i = 0; i < sizeof(data->udata) / sizeof(data->udata[0]); i++)
-            data->udata[i].piece_id = -1;
+            data->udata[i].piece_len = 0;
         data->data.pieces_copied = 0;
         data->data.s_piece = 0;
         data->data.f_piece = t->pieces.max_piece_num;
@@ -277,21 +285,26 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
 /**
  * Ф-ия добавляет новые данные к уже полученным
  */
-static void push_file_data(struct file_full_data_t *data, const struct srv_fields *f) {
+static void push_file_data(struct file_full_data_t *data,
+        const struct srv_fields *f, const struct transmission *t) {
     const struct cli_fields *cli = &(f->cli_field);
     struct file_udata_t *ud;
     struct file_data_t *d;
     unsigned char *d_ptr = NULL;
+    size_t piece_len = f->piece_len;
     int i;
+
+    if (cli->piece_id == t->pieces.max_piece_num - 1)
+        piece_len = t->filesize - (cli->piece_id * DATA_BLOCK_LEN);
 
     if (cli->piece_id > data->data.f_piece) {
         /* Откладываем данные до лучших времен */
         ud = data->udata;
         for (i = 0; i < sizeof(data->udata) / sizeof(*ud); i++) {
-            if (ud->piece_id == -1) {
+            if (ud->piece_len == 0) {
                 i = sizeof(data->udata);
                 ud->piece_id = cli->piece_id;
-                ud->piece_len = f->piece_len;
+                ud->piece_len = piece_len;
                 d_ptr = ud->data;
             }
             ud++;
@@ -299,27 +312,27 @@ static void push_file_data(struct file_full_data_t *data, const struct srv_field
     } else {
         /* Копируем блок в общий буфер */
         d = &(data->data);
-        d->full_size += f->piece_len;
+        d->full_size += piece_len;
         d->pieces_copied++;
         d_ptr = d->data + (cli->piece_id - d->s_piece);
     }
-    if (d_ptr) {
+    if (d_ptr)
         memcpy(d_ptr, f->piece, f->piece_len);
-    } else {
+    else
         err(CLIENT, "Piece %d saving failure", cli->piece_id);
-    }
 }
 
 /**
  * Ф-ия сбрасывает полученную часть файла на диск
+ * Возвращает 1 если передача была завершена
  */
-static void flush_file_data(struct file_full_data_t *data,
-        FILE *file, piece_id_t max_piece_num) {
+static int flush_file_data(struct file_full_data_t *data, FILE *file,
+        piece_id_t max_piece_num, const struct transmission *t) {
     struct file_data_t *d = &(data->data);
     struct file_udata_t *ud;
-    int i;
+    int i, r = 0;
 
-    if (d->pieces_copied == d->f_piece - d->s_piece + 1) {
+    if (d->pieces_copied == d->f_piece - d->s_piece) {
         /* Данные можно сбрасывать на жесткий диск */
         fwrite(d->data, sizeof(d->data[0]), d->full_size, file);
 
@@ -332,7 +345,7 @@ static void flush_file_data(struct file_full_data_t *data,
 
         ud = data->udata;
         for (i = 0; i < sizeof(data->udata) / sizeof(*ud); i++) {
-            if (ud->piece_id != -1 && ud->piece_id < d->f_piece) {
+            if (ud->piece_len != 0 && ud->piece_id < d->f_piece) {
                 d->pieces_copied++;
                 d->full_size += ud->piece_len;
                 memcpy(d->data + (ud->piece_id - d->s_piece), ud->data, ud->piece_len);
@@ -341,6 +354,12 @@ static void flush_file_data(struct file_full_data_t *data,
             ud++;
         }
     }
+
+    if (d->full_size == t->filesize) {
+        log(CLIENT, "recieve successfully completed");
+        r = 1;
+    }
+    return r;
 }
 
 /**
@@ -352,8 +371,9 @@ static void process_recieved_piece(const struct srv_fields *f,
     struct transmission *t = t_descr.trm + con->transmission_id;
 
     con->status = SRV_READY;
-    push_file_data(con->data, f);
-    flush_file_data(con->data, t->file, t->pieces.max_piece_num);
+    push_file_data(con->data, f, t);
+    if (flush_file_data(con->data, t->file, t->pieces.max_piece_num, t))
+        remove_transmission(con->transmission_id);
 }
 
 /**
@@ -385,8 +405,9 @@ void main_dispatcher() {
     struct active_connection *cur;
     cur = q_descr.q_head;
     while (cur) {
-        process_timeouts(cur);
-        cur = request_piece(cur);
+        if (process_timeouts(cur))
+            request_piece(cur);
+        cur = cur->next;
     }
 }
 
@@ -395,12 +416,11 @@ void main_dispatcher() {
  * Обрабатывает сообщение полученное от сервера.
  */
 int process_srv_message(int sock, const char *msg, size_t len) {
-    static struct srv_fields fields;    /**< Слишком большая для стека */
+    static struct srv_fields fields;    /**< Чтобы лишний раз не выделять память в стеке */
     struct active_connection *con;
     int r = 0;
 
     log(CLIENT, "package recieved from server %d", sock);
-
     if ((r = encode_srv_msg(&fields, msg, len)) == 0) {
         log_srv_fields(&fields);
         if ((con = search_connection(sock, &(fields.cli_field))))

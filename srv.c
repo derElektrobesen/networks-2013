@@ -13,7 +13,8 @@ static void _get_cache(int id, const unsigned char *data,
     start = DATA_BLOCK_LEN * c->start_piece;
     len = sizeof(c->data) / sizeof(*(c->data));
     count = CACHED_PIECES_COUNT;
-    log(SERVER, "start: %lu, len: %lu, count: %lu", start, len, count);
+    log(SERVER, "getting cache: start: %lu, len: %lu, count: %lu", 
+            start, len, count);
     if (!data) {
         fseek(c->file, start, SEEK_SET);
         nlen = fread(c->data, sizeof(*(c->data)), len, c->file);
@@ -128,7 +129,17 @@ static file_id_t add_transmission(struct cli_fields *f) {
 }
 
 static void read_file_piece(struct srv_fields *f) {
-    
+    int piece_id = f->cli_field.piece_id,
+        file_id = f->cli_field.file_id;
+    struct file_cache *c = &(f_descr.cache[file_id]);
+    if (c->start_piece < piece_id || c->end_piece > file_id) {
+        if (c->start_piece < piece_id)
+            c->start_piece = piece_id;
+        get_cache(file_id);
+    }
+    memcpy(f->piece, c->data + 
+        (piece_id - c->start_piece) * DATA_BLOCK_LEN, DATA_BLOCK_LEN);
+    f->piece_len = DATA_BLOCK_LEN;
 }
 
 /**
@@ -181,7 +192,6 @@ static void send_answer(const struct srv_fields *f, int sock) {
 int process_client_message(int sender_sock, const char *msg, size_t count) {
     struct srv_fields f;
     int r;
-
 
     log(SERVER, "message recieved from socket %d", sender_sock);
     r = encode_cli_msg(&(f.cli_field), msg, count);

@@ -16,16 +16,6 @@ int get_hash(struct cli_fields *fields, unsigned char *md5digest) {
     return 0;
 }
 
-unsigned int get_hex(const char *msg, int n) {
-    unsigned int result = 0;
-    int i = 0;
-    for (i = 0; i < n; i++) {
-        result <<= 8;
-        result |= (unsigned char)msg[i];
-    }
-    return result;
-}
-
 /**
  * Заполнение структуры cli_fields клиентом
  * Протокол получен от сервера
@@ -72,8 +62,7 @@ int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len) {
     memcpy(&(fields->cli_field.hsumm), p+=FILE_NUM_TSIZE, MD5_DIGEST_LENGTH);
     memcpy(&(fields->cli_field.file_name), p+= MD5_DIGEST_LENGTH, 
             FILE_NAME_MAX_LEN);
-    memcpy(&(fields->piece), p+=FILE_NAME_MAX_LEN, 
-            (BUF_MAX_LEN - sizeof(struct cli_fields)));
+    memcpy(&(fields->piece), p+=FILE_NAME_MAX_LEN, fields->piece_len);
     return r;
 }
 
@@ -119,10 +108,9 @@ size_t decode_srv_msg(const struct srv_fields *fields, char *msg) {
             &(fields->cli_field.hsumm), MD5_DIGEST_LENGTH);
     msg = strncpy(msg+=MD5_DIGEST_LENGTH,
             fields->cli_field.file_name, FILE_NAME_MAX_LEN);
-    memcpy(msg+=FILE_NAME_MAX_LEN, fields->piece,
-            BUF_MAX_LEN - sizeof(struct cli_fields));
-    p_end = msg + BUF_MAX_LEN - sizeof(struct cli_fields);
-    msg_length = (p_end - p_start) / sizeof(char);
+    memcpy(msg+=FILE_NAME_MAX_LEN, fields->piece, fields->piece_len);
+    p_end = msg + fields->piece_len;
+    msg_length = (p_end - p_start) / sizeof(*msg);
     return msg_length;
 }
 

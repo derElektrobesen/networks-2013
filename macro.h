@@ -44,7 +44,7 @@
         char r[255];                                            \
         convert_hex_str(r, sizeof(r), (f_ptr)->hsumm, MD5_DIGEST_LENGTH); \
         log(OTHER, "pack_id: %d, piece_id: %d, file_id: %d, "   \
-                   "error: %d, hsumm: %s, fname: %s",           \
+                   "error: %d, hsumm:%s, fname: %s",           \
                    (f_ptr)->pack_id, (f_ptr)->piece_id,         \
                    (f_ptr)->file_id, (f_ptr)->error,            \
                    r, (f_ptr)->file_name);                      \
@@ -53,7 +53,7 @@
         char r[255];                                            \
         convert_hex_str(r, sizeof(r), (f_ptr)->cli_field.hsumm, MD5_DIGEST_LENGTH); \
         log(OTHER, "pack_id: %d, piece_id: %d, file_id: %d, "   \
-                   "error: %d, piece_len: %lu, hsumm: %s, fname: %s", \
+                   "error: %d, piece_len: %lu, hsumm:%s, fname: %s", \
                    (f_ptr)->cli_field.pack_id,                  \
                    (f_ptr)->cli_field.piece_id,                 \
                    (f_ptr)->cli_field.file_id,                  \
