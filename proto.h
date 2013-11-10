@@ -35,10 +35,10 @@ struct cli_fields {
     perror_t error;
     file_id_t file_id;
     unsigned char hsumm[MD5_DIGEST_LENGTH];
-    char file_name[FILE_NAME_MAX_LEN]; // Заполняется клиентом
+    char file_name[FILE_NAME_MAX_LEN];
 };
 
-#define DATA_BLOCK_LEN (BUF_MAX_LEN - sizeof(struct cli_fields))
+#define DATA_BLOCK_LEN (BUF_MAX_LEN - sizeof(struct cli_fields) - PIECE_LEN_TSIZE)
 
 struct srv_fields {
     struct cli_fields cli_field;
