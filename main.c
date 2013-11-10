@@ -8,7 +8,7 @@
 struct sockets_queue q;
 
 void start(int sig) {
-    recieve_file("file", (const unsigned char *)"3dfec437ab061d838bbbc4ca1fd2dfcf", 10, &q);
+    recieve_file("file", (const unsigned char *)"\x3d\xfe\xc4\x37\xab\x06\x1d\x83\x8b\xbb\xc4\xca\x1f\xd2\xdf\xcf", 10, &q);
 }
 
 int main(int argc, char **argv) {
@@ -19,6 +19,7 @@ int main(int argc, char **argv) {
     srand(time(NULL));
 #endif
     signal(SIGUSR1, &start);
+    log(CLIENT, "Current pid: %d", getpid());
     return start_client(&process_srv_message, &main_dispatcher, &q);
 }
 

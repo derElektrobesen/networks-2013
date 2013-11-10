@@ -83,7 +83,7 @@ int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len) {
  * Формирование сообщения клиентом
  * Передается серверу
  */
-size_t decode_cli_msg(const struct cli_fields *fields,  char *msg) {
+size_t decode_cli_msg(const struct cli_fields *fields, char *msg) {
     size_t msg_length;
     char *p_start, *p_end;
 
@@ -98,8 +98,7 @@ size_t decode_cli_msg(const struct cli_fields *fields,  char *msg) {
     memcpy(msg+=PACK_ID_TSIZE, &(fields->piece_id), PIECE_NUM_TSIZE);
     memcpy(msg+=PIECE_NUM_TSIZE, &(fields->file_id), FILE_NUM_TSIZE);
     memcpy(msg+=FILE_NUM_TSIZE, &(fields->hsumm), MD5_DIGEST_LENGTH);
-    msg = strncpy(msg+=MD5_DIGEST_LENGTH,
-            fields->file_name,FILE_NAME_MAX_LEN);
+    msg = strncpy(msg+=MD5_DIGEST_LENGTH, fields->file_name,FILE_NAME_MAX_LEN);
     p_end = msg + FILE_NAME_MAX_LEN;
     msg_length = (p_end - p_start) / sizeof(char);
     return msg_length;

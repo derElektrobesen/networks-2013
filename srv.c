@@ -13,6 +13,7 @@ static void _get_cache(int id, const unsigned char *data,
     start = DATA_BLOCK_LEN * c->start_piece;
     len = sizeof(c->data) / sizeof(*(c->data));
     count = CACHED_PIECES_COUNT;
+    log(SERVER, "start: %lu, len: %lu, count: %lu", start, len, count);
     if (!data) {
         fseek(c->file, start, SEEK_SET);
         nlen = fread(c->data, sizeof(*(c->data)), len, c->file);
@@ -22,10 +23,12 @@ static void _get_cache(int id, const unsigned char *data,
                 count++;
         }
     } else {
+        locate;
         memcpy(c->data, data, data_len);
         count = data_len / DATA_BLOCK_LEN;
         if (count * DATA_BLOCK_LEN != data_len)
             count++;
+        log(SERVER, "pieces_count: %lu", count);
     }
     c->end_piece = c->start_piece + count;
 }
@@ -37,29 +40,26 @@ inline static void get_cache(int id) {
  * Ф-ия рассчитывает хэш-сумму файла и сравнивает ее с пришедшей
  * в структуре. В случае, если суммы совпадают, возвращает 0
  */
-static int cmp_file_hash(struct cli_fields *f, int id) {
+static int cmp_file_hash(const struct cli_fields *f, int id) {
     MD5_CTX md5;
     FILE *file = f_descr.cache[id].file;
-    unsigned char data[sizeof(f_descr.cache[0].data) / 
-                       sizeof(*(f_descr.cache[0].data))];
+    unsigned char data[BUF_MAX_LEN];
     unsigned char digest[MD5_DIGEST_LENGTH];
     int i = 0;
     unsigned long count;
 
+    locate;
     MD5_Init(&md5);
-    do {
-        count = fread(data, sizeof(*data), sizeof(data) / sizeof(*data), file);
-        if (count) {
-            if (i++ == 0) {
-                f_descr.cache[id].start_piece = 0;
-                _get_cache(id, data, count);
-            }
-            MD5_Update(&md5, data, count);
+    while ((count = fread(data, sizeof(*data), sizeof(data) / sizeof(*data), file))) {
+        if (i++ == 0) {
+            f_descr.cache[id].start_piece = 0;
+            _get_cache(id, data, count);
         }
-    } while (count);
+        MD5_Update(&md5, data, count);
+    }
     MD5_Final(digest, &md5);
 
-    return memcmp(digest, f->hsumm, sizeof(digest) / sizeof(*digest));
+    return bcmp(digest, f->hsumm, sizeof(digest) / sizeof(*digest));
 }
 
 /**
@@ -69,15 +69,17 @@ static int cmp_file_hash(struct cli_fields *f, int id) {
 static int search_file(const char *fname, char *full_name,
         int full_name_max_len) {
     /* TODO */
+    locate;
     if (full_name)
         snprintf(full_name, full_name_max_len, "%s/%s", HOME_DIR_PATH, fname);
+    log(SERVER, "full file name: %s", full_name);
     return 1;
 }
 
 /**
  * Ф-ия добавляет в список передаваемых файлов
  * новый элемент
- * Возвращает номер передачи (индекс в массиве names
+ * Возвращает номер передачи (индекс в массиве names)
  */
 static file_id_t add_transmission(struct cli_fields *f) {
     int i, flag = 0;
@@ -92,6 +94,7 @@ static file_id_t add_transmission(struct cli_fields *f) {
         flag = 1;
     }
     f->error = 0;
+    locate;
     if (search_file(f->file_name, filename, FULL_FILE_NAME_MAX_LEN)) {
         strncpy(f_descr.cache[r].name, f->file_name, FILE_NAME_MAX_LEN);
         f_descr.cache[r].file = fopen(filename, "rb");
@@ -100,15 +103,21 @@ static file_id_t add_transmission(struct cli_fields *f) {
             err_n(SERVER, "%s: fopen failure", f->file_name);
             f->error = set_bit(f->error, PE_FOPEN_FAILURE);
         } else {
-            if (cmp_file_hash(f, r)) {
+            locate;
+            i = cmp_file_hash(f, r);
+            locate;
+            if (i) {
                 log(SERVER, "File hash comparing failure");
                 f->error = set_bit(f->error, PE_HASH_CMP_FAILURE);
                 r = -1;
             } else {
+                locate;
                 f_descr.positions[r] = 1;
                 if (flag)
                     f_descr.count++;
+                f->file_id = r;
             }
+            locate;
         }
     } else {
         r = -1;
@@ -147,6 +156,7 @@ static void process_cli_msg(struct srv_fields *f) {
         remove_transmission(cf);
     else {
         if (fid == -1) {
+            locate;
             fid = add_transmission(cf);
             if (fid == -1) {
                 log(SERVER, "Transmission adding failure");
@@ -170,11 +180,15 @@ int process_client_message(int sender_sock, const char *msg, size_t count) {
     struct srv_fields f;
     int r;
 
+    log(SERVER, "message recieved from socket %d", sender_sock);
     r = encode_cli_msg(&(f.cli_field), msg, count);
+    log_cli_fields(&(f.cli_field));
     if (r)
         err(SERVER, "Encoding cli message failure");
     else {
         process_cli_msg(&f);
+        log(SERVER, "sending answer to socket %d", sender_sock);
+        log_srv_fields(&f);
         send_answer(&f, sender_sock);
     }
     return r;

@@ -93,7 +93,7 @@ struct active_connections {
 struct pieces_queue {
     piece_id_t max_piece_num;                       /**< Максимальный номер куска                       */
     piece_id_t cur_piece;                           /**< Содержит минимальный незапрошенный номер куска */
-    piece_id_t max_failed_piece_num;                /**< Максимальный номер куска в failed_pieces       */
+    signed int max_failed_piece_num;                /**< Максимальный номер куска в failed_pieces       */
     piece_id_t failed_pieces[MAX_PIECES_COUNT];     /**< Содержит неполученные куски файла              */
     piece_id_t flushed_pieces_count;                /**< Число записанных на диск кусков                */
 };

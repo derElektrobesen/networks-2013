@@ -50,6 +50,7 @@ static int process_timeouts(struct active_connection *con) {
     struct pieces_queue *q;
     int r = 0;
     if (con->timeout-- <= 0) {
+        log(CLIENT, "timeout on %d socket", con->srv_sock);
         r = 1;
         con->status = TRM_UNKN;
         q = &((t_descr.trm + con->transmission_id)->pieces);
@@ -65,16 +66,19 @@ static int process_timeouts(struct active_connection *con) {
 }
 
 /**
- * Ф-ия запрашивает очередной кусок
+ * Ф-ия запрашивает очередной кусок.
+ * Возвращает указатель на следующий элемент для обработки
  */
-static void request_piece(struct active_connection *con) {
+static struct active_connection *request_piece(struct active_connection *con) {
     struct pieces_queue *q;
     struct transmission *t;
     struct cli_fields f;
+    struct active_connection *tmp = NULL;
     piece_id_t piece;
     int i, j;
 
     if (con->status == SRV_READY) {
+        log(CLIENT, "server %d is ready", con->srv_sock);
         t = t_descr.trm + con->transmission_id;
         q = &(t->pieces);
         if (q->max_failed_piece_num >= 0) {
@@ -91,7 +95,8 @@ static void request_piece(struct active_connection *con) {
         } else
             piece = q->cur_piece++;
 
-        if (piece > q->max_piece_num) {
+        if (piece >= q->max_piece_num) {
+            log(CLIENT, "transmission complete");
             /* Файл полностью передан */
             if (con->next)
                 con->next->prev = con->prev;
@@ -101,8 +106,10 @@ static void request_piece(struct active_connection *con) {
                 con->prev->next = con->next;
             else
                 q_descr.q_head = con->next;
+            tmp = con;
             free(con);
         } else {
+            log(CLIENT, "require new piece with id %d", piece);
             f.piece_id = piece;
             /* TODO */
             strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
@@ -112,6 +119,7 @@ static void request_piece(struct active_connection *con) {
             require_piece(&f, con);
         }
     }
+    return tmp ? con : con->next;
 }
 
 /**
@@ -132,11 +140,13 @@ static int add_transmission(const char *filename,
     }
     if (!r) {
         for (r = 0; !t->openned_trms[r] && r < sizeof(t->trm); r++);
+        log(CLIENT, "trm: %d", r);
         t->openned_trms[r] = 0;
         t->count++;
         trm = t->trm + r;
         strncpy(trm->filename, filename, FILE_NAME_MAX_LEN);
         memcpy(trm->filesum, filesum, MD5_DIGEST_LENGTH);
+        log(CLIENT, "copied hsumm: %s", trm->filesum);
         trm->filesize = file_size;
         trm->status = TRM_WAITING_SERVERS;
 
@@ -146,6 +156,8 @@ static int add_transmission(const char *filename,
         q->max_piece_num = file_size / BUF_MAX_LEN;
         if (file_size != q->max_piece_num * BUF_MAX_LEN)
             q->max_piece_num++;
+
+        log(CLIENT, "max_piece_num: %d", q->max_piece_num);
     }
     return r;
 }
@@ -165,7 +177,7 @@ static struct active_connection *add_connection(int sock,
         int transmission_id, piece_id_t piece_id) {
     struct active_connection *q;
 
-    q = m_alloc_s(struct active_connection *);
+    q = m_alloc_s(struct active_connection);
     q->srv_sock = sock;
     q->timeout = FILE_TIMEOUT;
     q->transmission_id = transmission_id;
@@ -197,14 +209,9 @@ static int start_transmission(int transmission_id,
     struct active_connection *con;
     struct file_full_data_t *data;
     struct transmission *t = t_descr.trm + transmission_id;
-    struct cli_fields f = { .error = 0 };
-    int elem_count;
+    struct cli_fields f = { .error = 0, .file_id = -1 };
 
-    elem_count = t->pieces.max_piece_num;
-    if (elem_count > MIN_ALLOCATED_PIECES)
-        elem_count = MIN_ALLOCATED_PIECES;
-
-    data = m_alloc_s(struct file_full_data_t *);
+    data = m_alloc_s(struct file_full_data_t);
     if (!data) {
         err_n(CLIENT, "transmission start failure");
         r = TRME_ALLOC_FAILURE;
@@ -217,8 +224,7 @@ static int start_transmission(int transmission_id,
             data->udata[i].piece_id = -1;
         data->data.pieces_copied = 0;
         data->data.s_piece = 0;
-        data->data.f_piece = (MIN_ALLOCATED_PIECES > t->pieces.max_piece_num ?
-            t->pieces.max_piece_num : MIN_ALLOCATED_PIECES) - 1;
+        data->data.f_piece = t->pieces.max_piece_num;
 
         t->file = fopen(fname, "wb");
         if (!t->file) {
@@ -359,6 +365,7 @@ static void process_recieved_piece(const struct srv_fields *f,
 int recieve_file(const char *filename, const unsigned char *hsum,
         unsigned long fsize, const struct sockets_queue *q) {
     int tr_no, r;
+
     tr_no = add_transmission(filename, hsum, fsize);
     r = tr_no;
     if (tr_no >= 0) {
@@ -379,7 +386,7 @@ void main_dispatcher() {
     cur = q_descr.q_head;
     while (cur) {
         process_timeouts(cur);
-        request_piece(cur);
+        cur = request_piece(cur);
     }
 }
 
@@ -395,6 +402,7 @@ int process_srv_message(int sock, const char *msg, size_t len) {
     log(CLIENT, "package recieved from server %d", sock);
 
     if ((r = encode_srv_msg(&fields, msg, len)) == 0) {
+        log_srv_fields(&fields);
         if ((con = search_connection(sock, &(fields.cli_field))))
             process_recieved_piece(&fields, con);
         else

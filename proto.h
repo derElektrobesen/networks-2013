@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <openssl/md5.h>
+#include "md5.h"
 #include "macro.h"
 
 typedef unsigned int pack_id_t;
