@@ -51,7 +51,7 @@ static int require_piece(struct cli_fields *f, struct active_connection *con) {
 static int process_timeouts(struct active_connection *con) {
     struct pieces_queue *q;
     int r = 0;
-    if (con->timeout-- <= 0) {
+    if (con->status != SRV_READY && con->timeout-- <= 0) {
         log(CLIENT, "timeout on %d socket", con->srv_sock);
         r = 1;
         con->status = SRV_READY;
@@ -279,6 +279,7 @@ static struct active_connection *search_connection(int sock, const struct cli_fi
             r = con;
         con = con->next;
     }
+    locate;
     return r;
 }
 
@@ -334,6 +335,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
 
     if (d->pieces_copied == d->f_piece - d->s_piece) {
         /* Данные можно сбрасывать на жесткий диск */
+        log(SERVER, "writing %d bytes", d->full_size);
         fwrite(d->data, sizeof(d->data[0]), d->full_size, file);
 
         d->s_piece = d->f_piece + 1;
@@ -370,10 +372,12 @@ static void process_recieved_piece(const struct srv_fields *f,
         struct active_connection *con) {
     struct transmission *t = t_descr.trm + con->transmission_id;
 
+    locate;
     con->status = SRV_READY;
     push_file_data(con->data, f, t);
     if (flush_file_data(con->data, t->file, t->pieces.max_piece_num, t))
         remove_transmission(con->transmission_id);
+    locate;
 }
 
 /**
@@ -423,6 +427,7 @@ int process_srv_message(int sock, const char *msg, size_t len) {
     log(CLIENT, "package recieved from server %d", sock);
     if ((r = encode_srv_msg(&fields, msg, len)) == 0) {
         log_srv_fields(&fields);
+        locate;
         if ((con = search_connection(sock, &(fields.cli_field))))
             process_recieved_piece(&fields, con);
         else

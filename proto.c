@@ -28,6 +28,7 @@ int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len) {
         err(OTHER, "Message incorrect size");
         return -1;
     }
+    log(OTHER, "message length given: %d (%d)", msg_len, __LINE__);
     memcpy(&e, p, PROTOCOL_ERROR_TSIZE);
     memcpy(&(fields->pack_id), p+=PROTOCOL_ERROR_TSIZE, PACK_ID_TSIZE); 
     memcpy(&(fields->piece_id), p+=PACK_ID_TSIZE, PIECE_NUM_TSIZE);
@@ -52,16 +53,15 @@ int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len) {
         return -1;
     }
 
+    log(OTHER, "message length given: %d (%d)", msg_len, __LINE__);
     memcpy(&e, p, PROTOCOL_ERROR_TSIZE);
-    memcpy(&(fields->cli_field.pack_id), p+=PROTOCOL_ERROR_TSIZE,
-            PACK_ID_TSIZE); 
+    memcpy(&(fields->cli_field.pack_id), p+=PROTOCOL_ERROR_TSIZE, PACK_ID_TSIZE); 
     memcpy(&(fields->cli_field.piece_id), p+=PACK_ID_TSIZE, PIECE_NUM_TSIZE);
     fields->cli_field.error = e;
     memcpy(&(fields->piece_len), p+=PIECE_NUM_TSIZE, PIECE_LEN_TSIZE);
     memcpy(&(fields->cli_field.file_id), p+=PIECE_LEN_TSIZE, FILE_NUM_TSIZE);
     memcpy(&(fields->cli_field.hsumm), p+=FILE_NUM_TSIZE, MD5_DIGEST_LENGTH);
-    memcpy(&(fields->cli_field.file_name), p+= MD5_DIGEST_LENGTH, 
-            FILE_NAME_MAX_LEN);
+    memcpy(&(fields->cli_field.file_name), p+= MD5_DIGEST_LENGTH, FILE_NAME_MAX_LEN);
     memcpy(&(fields->piece), p+=FILE_NAME_MAX_LEN, fields->piece_len);
     return r;
 }
@@ -84,7 +84,7 @@ size_t decode_cli_msg(const struct cli_fields *fields, char *msg) {
     msg = strncpy(msg+=MD5_DIGEST_LENGTH, fields->file_name, FILE_NAME_MAX_LEN);
     p_end = msg + FILE_NAME_MAX_LEN;
     msg_length = (p_end - p_start) / sizeof(*msg);
-    log(CLIENT, "***** proto: message length = %d",msg_length); 
+    log(OTHER, "message length: %d (%d)", msg_length, __LINE__);
     return msg_length;
 }
 
@@ -98,21 +98,17 @@ size_t decode_srv_msg(const struct srv_fields *fields, char *msg) {
     msg_length = 0;
     p_start = msg;
     memcpy(msg, &(fields->cli_field.error), PROTOCOL_ERROR_TSIZE);
-    memcpy(msg+=PROTOCOL_ERROR_TSIZE,
-            &(fields->cli_field.pack_id), PACK_ID_TSIZE);
-    memcpy(msg+=PACK_ID_TSIZE,
-            &(fields->cli_field.piece_id), PIECE_NUM_TSIZE);
+    memcpy(msg+=PROTOCOL_ERROR_TSIZE, &(fields->cli_field.pack_id), PACK_ID_TSIZE);
+    memcpy(msg+=PACK_ID_TSIZE, &(fields->cli_field.piece_id), PIECE_NUM_TSIZE);
     memcpy(msg+=PIECE_NUM_TSIZE, &(fields->piece_len), PIECE_LEN_TSIZE);
-    memcpy(msg+=PIECE_LEN_TSIZE, &(fields->cli_field.file_id),
-            FILE_NUM_TSIZE);
-    memcpy(msg+=FILE_NUM_TSIZE,
-            &(fields->cli_field.hsumm), MD5_DIGEST_LENGTH);
-    strncpy(msg+=MD5_DIGEST_LENGTH,
-            fields->cli_field.file_name, FILE_NAME_MAX_LEN);
+    memcpy(msg+=PIECE_LEN_TSIZE, &(fields->cli_field.file_id), FILE_NUM_TSIZE);
+    memcpy(msg+=FILE_NUM_TSIZE, &(fields->cli_field.hsumm), MD5_DIGEST_LENGTH);
+    strncpy(msg+=MD5_DIGEST_LENGTH, fields->cli_field.file_name, FILE_NAME_MAX_LEN);
     memcpy(msg+=FILE_NAME_MAX_LEN, fields->piece, fields->piece_len);
+
     p_end = msg + fields->piece_len;
     msg_length = (p_end - p_start) / sizeof(*msg);
-    log(SERVER, "***** proto: message length = %d", msg_length);
+    log(OTHER, "message length: %d (%d)", msg_length, __LINE__);
     return msg_length;
 }
 
