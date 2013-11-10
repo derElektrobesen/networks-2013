@@ -173,6 +173,7 @@ static void send_answer(const struct srv_fields *f, int sock) {
     char msg[BUF_MAX_LEN];
 
     msg_len = decode_srv_msg(f, msg);
+    log(SERVER, "sending by server");
     log_srv_fields(f);
     send(sock, msg, msg_len, 0);
 }

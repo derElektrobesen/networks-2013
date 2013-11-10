@@ -34,6 +34,10 @@ int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len) {
     int r = 0;
     unsigned int e = 0;
     const char *p = msg;
+    if (msg_len == 0) {
+        err(OTHER, "Message incorrect size");
+        return -1;
+    }
     memcpy(&e, p, PROTOCOL_ERROR_TSIZE);
     memcpy(&(fields->pack_id), p+=PROTOCOL_ERROR_TSIZE, PACK_ID_TSIZE); 
     memcpy(&(fields->piece_id), p+=PACK_ID_TSIZE, PIECE_NUM_TSIZE);
@@ -53,6 +57,11 @@ int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len) {
     int r = 0;
     unsigned int e = 0;
     const char *p = msg;
+    if (msg_len == 0) {
+        err(OTHER, "Message incorrect length");
+        return -1;
+    }
+
     memcpy(&e, p, PROTOCOL_ERROR_TSIZE);
     memcpy(&(fields->cli_field.pack_id), p+=PROTOCOL_ERROR_TSIZE,
             PACK_ID_TSIZE); 
