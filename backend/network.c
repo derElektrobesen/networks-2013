@@ -1,4 +1,4 @@
-#include "network.h"
+#include "../include/network.h"
 
 /**
  * Функция возвращает ошибку, если
@@ -593,7 +593,16 @@ static int recieve_servers_messages(
     int broadcast_sock;
     struct sockaddr_in broadcast_sock_addr;
     struct timeval timeout = {
-        .tv_sec = ALARM_DELAY
+#ifdef ALARM_S_DELAY
+        .tv_sec = ALARM_S_DELAY,
+#else
+        .tv_sec = 0,
+#endif
+#ifdef ALARM_U_DELAY
+        .tv_usec = ALARM_U_DELAY,
+#else
+        .tv_usec = 0,
+#endif
     };
 
     broadcast_sock_addr.sin_family = AF_INET;
@@ -625,7 +634,12 @@ static int recieve_servers_messages(
 
         if (dispatcher && timeout.tv_sec == 0 && timeout.tv_usec == 0) {
             /* Timeout came */
-            timeout.tv_sec = ALARM_DELAY;
+#ifdef ALARM_S_DELAY
+            timeout.tv_sec = ALARM_S_DELAY;
+#endif
+#ifdef ALARM_U_DELAY
+            timeout.tv_usec = ALARM_U_DELAY;
+#endif
             dispatcher();
         }
     }

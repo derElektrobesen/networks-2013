@@ -81,4 +81,6 @@
 #define reset_bit(val, pos) ((unsigned int)((~(1 << (pos))) & (val)))
 #define get_bit(val, pos)   ((unsigned int)((1 << (pos)) & (val)))
 
+#define st_arr_len(arr_ptr) (sizeof(arr_ptr) / sizeof(*(arr_ptr)))
+
 #endif

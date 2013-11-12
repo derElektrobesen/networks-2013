@@ -1,9 +1,9 @@
-#include "network.h"
+#include "../include/network.h"
 
 #ifdef CLI
 #include <time.h>
 
-#   include "cli.h"
+#   include "../include/cli.h"
 
 struct sockets_queue q;
 
@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
 
 
 #elif defined SRV
-#   include "srv.h"
+#   include "../include/srv.h"
 
 int main(int argc, char **argv) {
     return start_server(&process_client_message);

@@ -53,7 +53,7 @@ struct file_data_t {
     piece_id_t f_piece;
     int pieces_copied;
     size_t full_size;
-    unsigned char data[MIN_ALLOCATED_PIECES * DATA_BLOCK_LEN];
+    unsigned char data[CACHED_PIECES_COUNT * DATA_BLOCK_LEN];
 };
 
 /**
@@ -62,7 +62,7 @@ struct file_data_t {
  */
 struct file_full_data_t {
     struct file_data_t data;
-    struct file_udata_t udata[MIN_ALLOCATED_PIECES];
+    struct file_udata_t udata[CACHED_PIECES_COUNT];
 };
 
 /**

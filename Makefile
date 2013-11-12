@@ -11,11 +11,14 @@ SRV_TAR = srv
 CLI_TAR = cli
 O_DIR = obj
 
+B_DIR = backend
+
 DEFINES =   DEBUG \
 			PORT=7777 \
 			SHORT_TIMEOUT=2 \
 			LONG_TIMEOUT=3 \
-			ALARM_DELAY=1 \
+			ALARM_U_DELAY=100000 \
+			ALARM_S_DELAY=0 \
 			FILE_TIMEOUT=10000 \
 			BUF_MAX_LEN=2048l \
 			BUF_MAX_LEN_TSIZE=4 \
@@ -28,8 +31,7 @@ DEFINES =   DEBUG \
 			MAX_PACK_NUM_LEN=7 \
 			MAX_CONNECTIONS=128 \
 			MAX_TRANSMISSIONS=8u \
-			MIN_ALLOCATED_PIECES=100 \
-			CACHED_PIECES_COUNT=200u \
+			CACHED_PIECES_COUNT=3u \
 			HOME_DIR_PATH=\"/tmp/course_prj/downloads\" \
 			APP_DIR_PATH=\"/tmp/course_prj\" \
 			FILE_PIECE_SIZE=\(10*BUF_MAX_LEN\) \
@@ -59,14 +61,14 @@ all: srv cli
 $(O_DIR):
 	@mkdir -p $(O_DIR)
 
-$(O_DIR)/%.o: %.c | $(O_DIR)
+$(O_DIR)/%.o: $(B_DIR)/%.c | $(O_DIR)
 	$(CC) $(PARAMS) -c $< -o $@
 
 srv: $(GLOBAL_OBJS) $(SRV_OBJS)
-	$(CC) $(PARAMS) -D$(SRV) -c main.c -o $(O_DIR)/server.o
+	$(CC) $(PARAMS) -D$(SRV) -c $(B_DIR)/main.c -o $(O_DIR)/server.o
 	$(CC) $(PARAMS) -D$(SRV) $(O_DIR)/server.o $(GLOBAL_OBJS) $(SRV_OBJS) -o $(SRV_TAR)
 cli: $(GLOBAL_OBJS) $(CLI_OBJS)
-	$(CC) $(PARAMS) -D$(CLI) -c main.c -o $(O_DIR)/client.o
+	$(CC) $(PARAMS) -D$(CLI) -c $(B_DIR)/main.c -o $(O_DIR)/client.o
 	$(CC) $(PARAMS) -D$(CLI) $(O_DIR)/client.o $(GLOBAL_OBJS) $(CLI_OBJS) -o $(CLI_TAR)
 
 clean:

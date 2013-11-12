@@ -1,4 +1,4 @@
-#include "cli.h"
+#include "../include/cli.h"
 
 static struct active_connections q_descr = {
     .q_head = NULL,
@@ -100,6 +100,8 @@ static void request_piece(struct active_connection *con) {
 
         log(CLIENT, "require piece with id %d", piece);
         f.piece_id = piece;
+        f.file_id = con->file_id;
+        f.error = 0;
         /* TODO */
         strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
@@ -127,7 +129,7 @@ static int add_transmission(const char *filename,
         r = TRME_TOO_MANY_TRM;
     }
     if (!r) {
-        for (r = 0; !t->openned_trms[r] && r < sizeof(t->trm); r++);
+        for (r = 0; !t->openned_trms[r] && r < st_arr_len(t->trm); r++);
         log(CLIENT, "trm: %d", r);
         t->openned_trms[r] = 0;
         t->count++;
@@ -140,8 +142,8 @@ static int add_transmission(const char *filename,
         q = &trm->pieces;
         q->max_failed_piece_num = -1;
         q->cur_piece = 0;
-        q->max_piece_num = file_size / BUF_MAX_LEN;
-        if (file_size != q->max_piece_num * BUF_MAX_LEN)
+        q->max_piece_num = file_size / DATA_BLOCK_LEN;
+        if (file_size != q->max_piece_num * DATA_BLOCK_LEN)
             q->max_piece_num++;
 
         log(CLIENT, "max_piece_num: %d", q->max_piece_num);
@@ -196,7 +198,8 @@ static void remove_transmission(int tr_id) {
     int pirate = 1;
 
     t_descr.count--;
-    fclose(t_descr.trm[tr_id].file);
+    if (t_descr.trm[tr_id].file)
+        fclose(t_descr.trm[tr_id].file);
     t_descr.openned_trms[tr_id] = 1;
 
     while (q) {
@@ -251,20 +254,16 @@ static int start_transmission(int transmission_id,
     struct transmission *t = t_descr.trm + transmission_id;
     struct cli_fields f = { .error = 0, .file_id = -1 };
 
-    data = m_alloc_s(struct file_full_data_t);
+    data = (struct file_full_data_t *)calloc(sizeof(struct file_full_data_t), 1);
     if (!data) {
         err_n(CLIENT, "transmission start failure");
         r = TRME_ALLOC_FAILURE;
     } else {
         strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
-        snprintf(fname, sizeof(fname), "%s/%s", APP_DIR_PATH, t->filename);
+        snprintf(fname, st_arr_len(fname), "%s/%s", APP_DIR_PATH, t->filename);
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
-        for (i = 0; i < sizeof(data->udata) / sizeof(data->udata[0]); i++)
-            data->udata[i].piece_len = 0;
-        data->data.pieces_copied = 0;
-        data->data.s_piece = 0;
-        data->data.f_piece = t->pieces.max_piece_num;
+        data->data.f_piece = sizeof(data->data.data) / DATA_BLOCK_LEN;
 
         t->file = fopen(fname, "w");
         if (!t->file) {
@@ -332,9 +331,9 @@ static void push_file_data(struct file_full_data_t *data,
     if (cli->piece_id >= data->data.f_piece) {
         /* Откладываем данные до лучших времен */
         ud = data->udata;
-        for (i = 0; i < sizeof(data->udata) / sizeof(*ud); i++) {
+        for (i = 0; i < st_arr_len(data->udata); i++) {
             if (ud->piece_len == 0) {
-                i = sizeof(data->udata);
+                i = st_arr_len(data->udata);
                 ud->piece_id = cli->piece_id;
                 ud->piece_len = piece_len;
                 d_ptr = ud->data;
@@ -370,15 +369,15 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
         if (!fwrite(d->data, sizeof(d->data[0]), d->full_size, file))
             err_n(CLIENT, "fwrite failure");
 
-        d->s_piece = d->f_piece + 1;
+        d->s_piece = d->f_piece;
         d->pieces_copied = 0;
         d->full_size = 0;
-        d->f_piece += MIN_ALLOCATED_PIECES - 1;
+        d->f_piece += st_arr_len(data->data.data) / DATA_BLOCK_LEN;
         if (d->f_piece > max_piece_num)
             d->f_piece = max_piece_num;
 
         ud = data->udata;
-        for (i = 0; i < sizeof(data->udata) / sizeof(*ud); i++) {
+        for (i = 0; i < st_arr_len(data->udata); i++) {
             if (ud->piece_len != 0 && ud->piece_id < d->f_piece) {
                 st = 1;
                 d->pieces_copied++;
@@ -408,10 +407,11 @@ static void process_recieved_piece(const struct srv_fields *f,
 
     con->status = SRV_READY;
     if (f->cli_field.file_id < 0) {
-        decode_proto_error(f->cli_field.error, err_msg, sizeof(err_msg));
+        decode_proto_error(f->cli_field.error, err_msg, st_arr_len(err_msg));
         err(CLIENT, "transmission failure: %s", err_msg);
         remove_connection(con);
     } else {
+        con->file_id = f->cli_field.file_id;
         push_file_data(con->data, f, t);
         if (flush_file_data(con->data, t->file, t->pieces.max_piece_num, t))
             remove_transmission(con->transmission_id);

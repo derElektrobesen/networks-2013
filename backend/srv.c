@@ -1,4 +1,4 @@
-#include "srv.h"
+#include "../include/srv.h"
 
 static struct files_queue f_descr = {
     .count = 0,
@@ -10,8 +10,8 @@ static void _get_cache(int id, const unsigned char *data,
     struct file_cache *c = f_descr.cache + id;
     size_t start, len, nlen, count;
 
-    start = DATA_BLOCK_LEN * c->start_piece;
-    len = sizeof(c->data) / sizeof(*(c->data));
+    start = DATA_BLOCK_LEN * c->end_piece;
+    len = st_arr_len(c->data);
     count = CACHED_PIECES_COUNT;
     log(SERVER, "getting cache: start: %lu, len: %lu, count: %lu", 
             start, len, count);
@@ -30,7 +30,8 @@ static void _get_cache(int id, const unsigned char *data,
             count++;
         log(SERVER, "pieces_count: %lu", count);
     }
-    c->end_piece = c->start_piece + count;
+    c->start_piece = c->end_piece;
+    c->end_piece += count;
 }
 inline static void get_cache(int id) {
     _get_cache(id, NULL, 0);
@@ -50,16 +51,16 @@ static int cmp_file_hash(const struct cli_fields *f, int id) {
 
     locate;
     MD5_Init(&md5);
-    while ((count = fread(data, sizeof(*data), sizeof(data) / sizeof(*data), file))) {
+    while ((count = fread(data, sizeof(*data), st_arr_len(data), file))) {
         if (i++ == 0) {
-            f_descr.cache[id].start_piece = 0;
+            f_descr.cache[id].end_piece = 0;
             _get_cache(id, data, count);
         }
         MD5_Update(&md5, data, count);
     }
     MD5_Final(digest, &md5);
 
-    return bcmp(digest, f->hsumm, sizeof(digest) / sizeof(*digest));
+    return bcmp(digest, f->hsumm, st_arr_len(digest));
 }
 
 /**
@@ -101,8 +102,8 @@ static file_id_t add_transmission(struct cli_fields *f) {
     }
     f->error = 0;
     locate;
-    if (!(stat = search_file(f->file_name, filename, sizeof(filename)))) {
-        strncpy(f_descr.cache[r].name, f->file_name, sizeof(f->file_name));
+    if (!(stat = search_file(f->file_name, filename, st_arr_len(filename)))) {
+        strncpy(f_descr.cache[r].name, f->file_name, st_arr_len(f->file_name));
         f_descr.cache[r].file = fopen(filename, "rb");
         if (!f_descr.cache[r].file) {
             r = -1;
@@ -128,7 +129,7 @@ static file_id_t add_transmission(struct cli_fields *f) {
     } else {
         r = -1;
         f->error |= stat;
-        decode_proto_error(stat, buf, sizeof(buf));
+        decode_proto_error(stat, buf, st_arr_len(buf));
         log(SERVER, "%s: %s", f->file_name, buf);
     }
     return r;
@@ -138,7 +139,7 @@ static void read_file_piece(struct srv_fields *f) {
     int piece_id = f->cli_field.piece_id,
         file_id = f->cli_field.file_id;
     struct file_cache *c = &(f_descr.cache[file_id]);
-    if (c->start_piece > piece_id || c->end_piece < piece_id) {
+    if (c->start_piece > piece_id || c->end_piece <= piece_id) {
         if (c->start_piece > piece_id)
             c->start_piece = piece_id;
         get_cache(file_id);
@@ -190,7 +191,7 @@ static void send_answer(const struct srv_fields *f, int sock) {
     char msg[BUF_MAX_LEN];
 
     msg_len = decode_srv_msg(f, msg);
-    log(SERVER, "sending by server");
+    log(SERVER, "sending answer to socket %d", sock);
     log_srv_fields(f);
     log(SERVER, "bytes send: %lu", msg_len);
     send(sock, msg, msg_len, 0);
@@ -207,8 +208,6 @@ int process_client_message(int sender_sock, const char *msg, size_t count) {
         err(SERVER, "Encoding cli message failure");
     else {
         process_cli_msg(&f);
-        log(SERVER, "sending answer to socket %d", sender_sock);
-        log_srv_fields(&f);
         send_answer(&f, sender_sock);
     }
     return r;
