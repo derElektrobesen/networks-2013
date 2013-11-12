@@ -107,7 +107,6 @@ static void request_piece(struct active_connection *con) {
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
         /* TODO: Обработать ошибки */
-        locate;
         require_piece(&f, con);
     }
 }
@@ -280,7 +279,6 @@ static int start_transmission(int transmission_id,
             if (con) {
                 f.piece_id = i;
                 /* TODO: Обработать исключительные ситуации */
-                locate;
                 if (require_piece(&f, con) == 0) {
                     req_count++;
                     t->pieces.cur_piece++;

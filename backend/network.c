@@ -176,7 +176,6 @@ static int process_sockets(fd_set *set, socket_callback callback,
             max_sock = *(opened_sockets + i);
         if (FD_ISSET(*(opened_sockets + i), set)) {
             bytes_read = recieve_data(*(opened_sockets + i), buf, sizeof(buf));
-            locate;
             log(OTHER, "bytes recieved: %lu", bytes_read);
             if (bytes_read <= 0) {
                 log(CLIENT, "connection closed: %d", *(opened_sockets + i));
@@ -425,7 +424,7 @@ static void *broadcast_start(void *arg) {
     msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);
 
     while (1) {
-        log(BROADCAST, "sending broadcast message");
+        /* log(BROADCAST, "sending broadcast message");  */
         if (sendto(sock, msg, msg_len, 0, (struct sockaddr *)&brc_addr, sizeof(brc_addr)) != msg_len)
             err_n(BROADCAST, "sendto failure");
         sleep(SHORT_TIMEOUT);
@@ -558,7 +557,6 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
         }
         if (FD_ISSET(q->sockets[i], set)) {
             bytes_read = recieve_data(q->sockets[i], msg, sizeof(msg));
-            locate;
             log(OTHER, "bytes read: %lu", bytes_read);
             if (bytes_read <= 0) {
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);

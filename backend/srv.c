@@ -24,7 +24,6 @@ static void _get_cache(int id, const unsigned char *data,
                 count++;
         }
     } else {
-        locate;
         memcpy(c->data, data, data_len);
         if (!(count = data_len / DATA_BLOCK_LEN))
             count++;
@@ -49,7 +48,6 @@ static int cmp_file_hash(const struct cli_fields *f, int id) {
     int i = 0;
     unsigned long count;
 
-    locate;
     MD5_Init(&md5);
     while ((count = fread(data, sizeof(*data), st_arr_len(data), file))) {
         if (i++ == 0) {
@@ -71,7 +69,6 @@ static int search_file(const char *fname, char *full_name,
         int full_name_max_len) {
     /* TODO */
     int r = 0;
-    locate;
     if (full_name)
         snprintf(full_name, full_name_max_len, "%s/%s", HOME_DIR_PATH, fname);
     log(SERVER, "full file name: %s", full_name);
@@ -101,7 +98,6 @@ static file_id_t add_transmission(struct cli_fields *f) {
         flag = 1;
     }
     f->error = 0;
-    locate;
     if (!(stat = search_file(f->file_name, filename, st_arr_len(filename)))) {
         strncpy(f_descr.cache[r].name, f->file_name, st_arr_len(f->file_name));
         f_descr.cache[r].file = fopen(filename, "rb");
@@ -110,21 +106,17 @@ static file_id_t add_transmission(struct cli_fields *f) {
             err_n(SERVER, "%s: fopen failure", f->file_name);
             f->error = set_bit(f->error, PE_FOPEN_FAILURE);
         } else {
-            locate;
             i = cmp_file_hash(f, r);
-            locate;
             if (i) {
                 log(SERVER, "File hash comparing failure");
                 f->error = set_bit(f->error, PE_HASH_CMP_FAILURE);
                 r = -1;
             } else {
-                locate;
                 f_descr.positions[r] = 1;
                 if (flag)
                     f_descr.count++;
                 f->file_id = r;
             }
-            locate;
         }
     } else {
         r = -1;
@@ -174,7 +166,6 @@ static void process_cli_msg(struct srv_fields *f) {
         remove_transmission(cf);
     else {
         if (fid == -1) {
-            locate;
             fid = add_transmission(cf);
             if (fid == -1) {
                 log(SERVER, "Transmission adding failure");
