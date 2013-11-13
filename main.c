@@ -109,6 +109,7 @@ int main(int argc, char **argv) {
 #endif
     signal(SIGUSR1, &start);
     log(CLIENT, "Current pid: %d", getpid());
+	/*daemonize(argv[0], CLI_LOCK_FILE_NAME);*/
     return start_client(&process_srv_message, &main_dispatcher, &q);
 }
 
@@ -123,9 +124,7 @@ int main(int argc, char **argv) {
 }
 
 #else
-
 int main(int argc, char **argv) {
-	/*daemonize(argv[0], CLI_LOCK_FILE_NAME);*/
     err(-1, "Compile define option is required");
     return 1;
 }
