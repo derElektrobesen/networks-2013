@@ -30,7 +30,7 @@ static int require_piece(struct cli_fields *f, struct active_connection *con) {
         err(CLIENT, "decode message error");
         r = TRME_DECODE_ERR;
     } else {
-        log(CLIENT, "sending message");
+        log(CLIENT, ">>> sending message");
         log_cli_fields(f);
         log(CLIENT, "bytes send: %lu", msg_len);
         if (send(con->srv_sock, msg, msg_len, 0) < 0) {
@@ -460,7 +460,7 @@ int process_srv_message(int sock, const char *msg, size_t len) {
     struct active_connection *con;
     int r = 0;
 
-    log(CLIENT, "package recieved from server %d", sock);
+    log(CLIENT, "<<< package recieved from server %d", sock);
     if ((r = encode_srv_msg(&fields, msg, len)) == 0) {
         log_srv_fields(&fields);
         if ((con = search_connection(sock, &(fields.cli_field))))
