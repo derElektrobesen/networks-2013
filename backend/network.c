@@ -152,12 +152,15 @@ static ssize_t recieve_data(int sock, char *buf, size_t len) {
     if (sizeof(size_t) != MSG_LEN_T_SIZE)
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
 
+    log(OTHER, ">>> receive_data, length = %lu, sock = %d", rlen, sock);
+
     if (recv(sock, size, MSG_LEN_T_SIZE, 0) != MSG_LEN_T_SIZE) {
         rlen = -1;
         err_n(OTHER, "recv data size failure");
     } else {
         memcpy(&rlen, size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
-        log(OTHER, "receive_data, length = %lu", rlen);
+        print_hex_str("data size recieved", size, MSG_LEN_T_SIZE);
+        print_hex_str("data size copied", &rlen, sizeof(rlen));
         if (recv(sock, buf, rlen, 0) != rlen) {
             rlen = -1;
             err_n(OTHER, "recv data failure");
@@ -176,8 +179,11 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
     if (sizeof(size_t) != MSG_LEN_T_SIZE)
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
 
+    log(OTHER, "<<< send_data, length = %lu, sock = %d", len, sock);
+
     memcpy(size, &len, r);
-    log(OTHER, "***send_data, length = %lu", len);
+    print_hex_str("data size sent", &len, sizeof(len));
+    print_hex_str("data size copied", size, MSG_LEN_T_SIZE);
     if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
         r = -1;
         err_n(OTHER, "send data size failure");
@@ -259,7 +265,7 @@ static int recieve_messages(int sock, socket_callback callback) {
             make_sock_nonblock(cli_sock);
             if (sockets_count > MAX_CONNECTIONS - 1) {
                 log(SERVER, "connection refused: too many connections");
-                send_data(cli_sock, err_str, strlen(err_str), 0);
+                send(cli_sock, err_str, strlen(err_str), 0);
                 close(cli_sock);
             } else {
                 sockets[sockets_count++] = cli_sock;

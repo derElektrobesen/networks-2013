@@ -30,8 +30,9 @@
 #   define locate log(OTHER, "%s, %d", __FUNCTION__, __LINE__)
 #   define convert_hex_str(buf, buflen, str, len) {             \
         int i; char *ptr = (buf);                               \
+        char *data = (char *)str;                               \
         for (i = 0; i < (len); i++) {                           \
-            snprintf(ptr, (buflen) - i * 3, "%02x", (str)[i]);  \
+            snprintf(ptr, (buflen) - i * 3, "%02x", *(data)++); \
             ptr += 2;                                           \
         }                                                       \
     }
