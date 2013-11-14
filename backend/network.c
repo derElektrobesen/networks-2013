@@ -152,16 +152,16 @@ static ssize_t recieve_data(int sock, char *buf, size_t len) {
     if (sizeof(size_t) != MSG_LEN_T_SIZE)
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
 
-    log(OTHER, ">>> receive_data, length = %lu, sock = %d", rlen, sock);
-
-    if (recv(sock, size, MSG_LEN_T_SIZE, 0) != MSG_LEN_T_SIZE) {
+    if (recv(sock, size, MSG_LEN_T_SIZE, MSG_WAITALL) != MSG_LEN_T_SIZE) {
         rlen = -1;
         err_n(OTHER, "recv data size failure");
     } else {
         memcpy(&rlen, size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
         print_hex_str("data size recieved", size, MSG_LEN_T_SIZE);
         print_hex_str("data size copied", &rlen, sizeof(rlen));
-        if (recv(sock, buf, rlen, 0) != rlen) {
+        log(OTHER, ">>> receive_data, length = %lu, sock = %d", rlen, sock);
+
+        if (recv(sock, buf, rlen, MSG_WAITALL) != rlen) {
             rlen = -1;
             err_n(OTHER, "recv data failure");
         }
@@ -193,7 +193,7 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
     } else
         r = 0;
 
-    return 0;
+    return len;
 }
 /**
  * Получает сообщение от сокета, на котором возникло некоторое событие
