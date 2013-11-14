@@ -45,6 +45,8 @@ DEFINES =   DEBUG \
 
 DEFS = $(DEFINES:%=-D%)
 
+MAIN_FILE=$(B_DIR)/main.c
+
 GLOBAL_SRCS = network.c md5.c proto.c json.c
 GLOBAL_OBJS = $(GLOBAL_SRCS:%.c=$(O_DIR)/%.o)
 
@@ -66,11 +68,11 @@ $(O_DIR):
 $(O_DIR)/%.o: $(B_DIR)/%.c | $(O_DIR)
 	$(CC) $(PARAMS) -c $< -o $@
 
-srv: $(GLOBAL_OBJS) $(SRV_OBJS)
-	$(CC) $(PARAMS) -D$(SRV) -c $(B_DIR)/main.c -o $(O_DIR)/server.o
+srv: $(GLOBAL_OBJS:%.c=$(B_DIR)/%.c) $(SRV_OBJS:%.c=$(B_DIR)/%.c) $(MAIN_FILE)
+	$(CC) $(PARAMS) -D$(SRV) -c $(MAIN_FILE) -o $(O_DIR)/server.o
 	$(CC) $(PARAMS) -D$(SRV) $(O_DIR)/server.o $(GLOBAL_OBJS) $(SRV_OBJS) -o $(SRV_TAR)
-cli: $(GLOBAL_OBJS) $(CLI_OBJS)
-	$(CC) $(PARAMS) -D$(CLI) -c $(B_DIR)/main.c -o $(O_DIR)/client.o
+cli: $(GLOBAL_OBJS) $(CLI_OBJS) $(MAIN_FILE)
+	$(CC) $(PARAMS) -D$(CLI) -c $(MAIN_FILE) -o $(O_DIR)/client.o
 	$(CC) $(PARAMS) -D$(CLI) $(O_DIR)/client.o $(GLOBAL_OBJS) $(CLI_OBJS) -o $(CLI_TAR)
 
 clean:
