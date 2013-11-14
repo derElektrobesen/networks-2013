@@ -33,7 +33,7 @@ static int require_piece(struct cli_fields *f, struct active_connection *con) {
         log(CLIENT, ">>> sending message");
         log_cli_fields(f);
         log(CLIENT, "bytes send: %lu", msg_len);
-        if (send(con->srv_sock, msg, msg_len, 0) < 0) {
+        if (send_data(con->srv_sock, msg, msg_len, 0) < 0) {
             err_n(CLIENT, "send failure");
             r = TRME_SOCKET_FAILURE;
             con->status = SRV_UNKN;
