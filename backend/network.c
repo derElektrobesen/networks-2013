@@ -154,6 +154,7 @@ static ssize_t recieve_data(int sock, char *buf, size_t len) {
 
     if (recv(sock, size, MSG_LEN_T_SIZE, MSG_WAITALL) != MSG_LEN_T_SIZE) {
         rlen = -1;
+        print_hex_str("failed data recieved", size, MSG_LEN_T_SIZE);
         err_n(OTHER, "recv data size failure");
     } else {
         memcpy(&rlen, size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
