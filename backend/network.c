@@ -179,11 +179,11 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
     if (sizeof(size_t) != MSG_LEN_T_SIZE)
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
 
-    log(OTHER, "<<< send_data, length = %lu, sock = %d", len, sock);
-
     memcpy(size, &len, r);
     print_hex_str("data size sent", &len, sizeof(len));
     print_hex_str("data size copied", size, MSG_LEN_T_SIZE);
+    log(OTHER, "<<< send_data, length = %lu, sock = %d", len, sock);
+
     if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
         r = -1;
         err_n(OTHER, "send data size failure");
@@ -192,6 +192,7 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
         err_n(OTHER, "send data failure");
     } else
         r = 0;
+
     return 0;
 }
 /**
