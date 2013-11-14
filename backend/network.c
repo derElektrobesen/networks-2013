@@ -157,6 +157,7 @@ static ssize_t recieve_data(int sock, char *buf, size_t len) {
         err_n(OTHER, "recv data size failure");
     } else {
         memcpy(&rlen, size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
+        log(OTHER, "receive_data, length = %lu", rlen);
         if (recv(sock, buf, rlen, 0) != rlen) {
             rlen = -1;
             err_n(OTHER, "recv data failure");
@@ -176,6 +177,7 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
 
     memcpy(size, &len, r);
+    log(OTHER, "***send_data, length = %lu", len);
     if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
         r = -1;
         err_n(OTHER, "send data size failure");
