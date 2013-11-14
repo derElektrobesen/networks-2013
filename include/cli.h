@@ -14,6 +14,7 @@
 #include "proto.h"
 #include "macro.h"
 #include "types.h"
+#include "network.h"
 
 /* Defines */
 #define SRV_UNKN                0   /**< Сервер недоступен                      */

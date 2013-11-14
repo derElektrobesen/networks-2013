@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 
 #include "proto.h"
+#include "network.h"
 
 struct file_cache {
     unsigned char data[CACHED_PIECES_COUNT * DATA_BLOCK_LEN];
@@ -21,6 +22,5 @@ struct files_queue {
 
 /* Обрабатывает сообщения, поступающие от клиентов */
 int process_client_message(int sender_sock, const char *msg, size_t count);
-ssize_t send_data(int sock, char *buf, size_t len, int flags);
 
 #endif

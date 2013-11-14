@@ -34,5 +34,6 @@ typedef int (*server_response_callback)(struct sockets_queue *queue);
 int start_server(socket_callback process_cli_msg_callback);
 int start_client(socket_callback process_srv_msg_callback,
         queue_dispatcher dispatcher, struct sockets_queue *q);
+ssize_t send_data(int sock, char *buf, size_t len, int flags);
 
 #endif
