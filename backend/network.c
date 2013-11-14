@@ -228,7 +228,7 @@ static int recieve_messages(int sock, socket_callback callback) {
             make_sock_nonblock(cli_sock);
             if (sockets_count > MAX_CONNECTIONS - 1) {
                 log(SERVER, "connection refused: too many connections");
-                send(cli_sock, err_str, strlen(err_str), 0);
+                send_data(cli_sock, err_str, strlen(err_str), 0);
                 close(cli_sock);
             } else {
                 sockets[sockets_count++] = cli_sock;

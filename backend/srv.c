@@ -185,7 +185,7 @@ static void send_answer(const struct srv_fields *f, int sock) {
     log(SERVER, ">>> sending answer to socket %d", sock);
     log_srv_fields(f);
     log(SERVER, "bytes send: %lu", msg_len);
-    send(sock, msg, msg_len, 0);
+    send_data(sock, msg, msg_len, 0);
 }
 
 int process_client_message(int sender_sock, const char *msg, size_t count) {
