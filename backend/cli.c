@@ -364,7 +364,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
     if (d->pieces_copied == d->f_piece - d->s_piece) {
         /* Данные можно сбрасывать на жесткий диск */
         log(SERVER, "writing %lu bytes", d->full_size);
-        if (!fwrite(d->data, sizeof(d->data[0]), d->full_size, file))
+        if (!fwrite(d->data, sizeof(d->data[0]), d->full_size, file) != d->full_size)
             err_n(CLIENT, "fwrite failure");
 
         d->s_piece = d->f_piece;
