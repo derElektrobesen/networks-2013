@@ -34,12 +34,14 @@ DEFINES =   DEBUG \
 			CACHED_PIECES_COUNT=3u \
 			HOME_DIR_PATH=\"/tmp/course_prj/downloads\" \
 			APP_DIR_PATH=\"/tmp/course_prj\" \
+			LOCK_FILE_PATH=\"/var/run/\" \
 			FILE_PIECE_SIZE=\(10*BUF_MAX_LEN\) \
 			DONT_DO_SRAND \
 			USE_LOOPBACK
 
 # Unused macro defs
 # PRINT_LINES
+# DAEMONIZE
 
 DEFS = $(DEFINES:%=-D%)
 
