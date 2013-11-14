@@ -60,7 +60,7 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
  */
 static int make_sock_nonblock(int sock) {
     int e = 0;
-    e = fcntl(sock, F_SETFL, O_NONBLOCK);
+    /* e = fcntl(sock, F_SETFL, O_NONBLOCK); */
     if (e < 0)
         err_n(-1, "fcntl failure");
     return e;
@@ -84,17 +84,17 @@ static int init_client_err(int sock, int err_no) {
  */
 static int connect_retry(int sockfd, const struct sockaddr *addr, socklen_t alen, int max_try) {
     int i = 0;
-    while (i < max_try) {
+    int r = -1;
+    while (r < 0 && i < max_try) {
         i++;
         log(CLIENT, "connecting...");
 		if (connect(sockfd, addr, alen) == 0) {
             log(CLIENT, "connection successfull.");
-			return 0;
-        }
-        log(CLIENT, "connection failure.");
-        sleep(SHORT_TIMEOUT);
+            r = 0;
+        } else
+            sleep(SHORT_TIMEOUT);
 	}
-	return -1;
+	return r;
 }
 
 /**
@@ -146,17 +146,46 @@ static int create_client(const char *addr) {
  * Ф-ия ожидает получения всего куска данных
  */
 static ssize_t recieve_data(int sock, char *buf, size_t len) {
-    ssize_t offset = 0;
     ssize_t rlen = 0;
-    char *tmp = buf;
+    char size[MSG_LEN_T_SIZE];
+    
+    if (sizeof(size_t) != MSG_LEN_T_SIZE)
+        err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
 
-    while ((offset = recv(sock, tmp, len - offset, 0)) > 0) {
-        tmp += offset;
-        rlen += offset;
+    if (recv(sock, size, MSG_LEN_T_SIZE, 0) != MSG_LEN_T_SIZE) {
+        rlen = -1;
+        err_n(OTHER, "recv data size failure");
+    } else {
+        memcpy(&rlen, size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
+        if (recv(sock, buf, rlen, 0) != rlen) {
+            rlen = -1;
+            err_n(OTHER, "recv data failure");
+        }
     }
     return rlen;
 }
 
+/**
+ * Ф-ия посылает данные сокету
+ */
+ssize_t send_data(int sock, char *buf, size_t len, int flags) {
+    char size[MSG_LEN_T_SIZE];
+    ssize_t r = sizeof(len) < MSG_LEN_T_SIZE ? sizeof(len) : MSG_LEN_T_SIZE;
+
+    if (sizeof(size_t) != MSG_LEN_T_SIZE)
+        err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
+
+    memcpy(size, &len, r);
+    if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
+        r = -1;
+        err_n(OTHER, "send data size failure");
+    } else if (send(sock, buf, len, flags) != len) {
+        r = -1;
+        err_n(OTHER, "send data failure");
+    } else
+        r = 0;
+    return 0;
+}
 /**
  * Получает сообщение от сокета, на котором возникло некоторое событие
  * и обрабатывает его. Удаляет сокет из массива в случае разрыва соединения.

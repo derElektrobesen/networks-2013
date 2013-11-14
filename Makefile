@@ -36,6 +36,7 @@ DEFINES =   DEBUG \
 			APP_DIR_PATH=\"/tmp/course_prj\" \
 			LOCK_FILE_PATH=\"/var/run/\" \
 			FILE_PIECE_SIZE=\(10*BUF_MAX_LEN\) \
+			MSG_LEN_T_SIZE=8 \
 			DONT_DO_SRAND \
 			USE_LOOPBACK
 
