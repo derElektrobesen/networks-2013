@@ -195,8 +195,10 @@ static void remove_transmission(int tr_id) {
     int pirate = 1;
 
     t_descr.count--;
-    if (t_descr.trm[tr_id].file)
+    if (t_descr.trm[tr_id].file) {
         fclose(t_descr.trm[tr_id].file);
+        t_descr.trm[tr_id].file = NULL;
+    }
     t_descr.openned_trms[tr_id] = 1;
 
     while (q) {
