@@ -236,8 +236,6 @@ static int process_sockets(fd_set *set, socket_callback callback,
                 i--;
             } else if (bytes_read) {
                 log(OTHER, "bytes received: %lu", bytes_read);
-                if (buf[bytes_read - 1] == '\n')
-                    bytes_read--;
                 buf[bytes_read] = 0;
                 if (callback)
                     callback(*(opened_sockets + i), buf, bytes_read);
@@ -617,8 +615,6 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
                 q->count--;
             } else if (bytes_read) {
                 log(OTHER, "bytes read: %lu", bytes_read);
-                if (msg[bytes_read - 1] == '\n')
-                    bytes_read--;
                 msg[bytes_read] = 0;
                 if (callback)
                     callback(q->sockets[i], msg, bytes_read);
