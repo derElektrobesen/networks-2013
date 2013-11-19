@@ -77,6 +77,7 @@ static void request_piece(struct active_connection *con) {
     struct cli_fields f;
     piece_id_t piece;
     int i, j;
+    int pirate = 0;
 
     if (con->status == SRV_READY) {
         log(CLIENT, "server %d is ready", con->srv_sock);
@@ -93,19 +94,23 @@ static void request_piece(struct active_connection *con) {
             for (i = j; i < q->max_failed_piece_num; i++)
                 q->failed_pieces[i] = q->failed_pieces[i + 1];
             q->max_failed_piece_num--;
-        } else
+        } else if (q->cur_piece <= q->max_piece_num)
             piece = q->cur_piece++;
+        else
+            pirate = 1;
 
-        log(CLIENT, "require piece with id %d", piece);
-        f.piece_id = piece;
-        f.file_id = con->file_id;
-        f.error = 0;
-        /* TODO */
-        strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
-        memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
+        if (!pirate) {
+            log(CLIENT, "require piece with id %d", piece);
+            f.piece_id = piece;
+            f.file_id = con->file_id;
+            f.error = 0;
+            /* TODO */
+            strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
+            memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
-        /* TODO: Обработать ошибки */
-        require_piece(&f, con);
+            /* TODO: Обработать ошибки */
+            require_piece(&f, con);
+        }
     }
 }
 
