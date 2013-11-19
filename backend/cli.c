@@ -341,7 +341,7 @@ static void push_file_data(struct file_full_data_t *data,
         d = &(data->data);
         d->full_size += piece_len;
         d->pieces_copied++;
-        d_ptr = d->data + (cli->piece_id - d->s_piece);
+        d_ptr = d->data + (cli->piece_id - d->s_piece) * DATA_BLOCK_LEN;
     }
     if (d_ptr)
         memcpy(d_ptr, f->piece, f->piece_len);
@@ -386,7 +386,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
     }
 
     if (!st && t->pieces.cur_piece == t->pieces.max_piece_num) {
-        log(CLIENT, "recieve successfully completed");
+        log(CLIENT, "receive successfully completed");
         r = 1;
     }
     return r;
@@ -396,7 +396,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
  * Ф-ия помечает полученный кусок как полученный и добавляет его
  * в результирующие данные
  */
-static void process_recieved_piece(const struct srv_fields *f,
+static void process_received_piece(const struct srv_fields *f,
         struct active_connection *con) {
     struct transmission *t = t_descr.trm + con->transmission_id;
     char err_msg[255];
@@ -420,7 +420,7 @@ static void process_recieved_piece(const struct srv_fields *f,
  * В случае ошибки возвращает отрицательное число, которое можно
  * интерпретировать с помощью TRME_* флагов
  */
-int recieve_file(const char *filename, const unsigned char *hsum,
+int receive_file(const char *filename, const unsigned char *hsum,
         unsigned long fsize, const struct sockets_queue *q) {
     int tr_no, r;
 
@@ -461,7 +461,7 @@ int process_srv_message(int sock, const char *msg, size_t len) {
     if ((r = encode_srv_msg(&fields, msg, len)) == 0) {
         log_srv_fields(&fields);
         if ((con = search_connection(sock, &(fields.cli_field))))
-            process_recieved_piece(&fields, con);
+            process_received_piece(&fields, con);
         else
             r = -1;
     }

@@ -129,7 +129,7 @@ int process_srv_message(int sock, const char *msg, size_t len);
 /* Основной диспетчер */
 void main_dispatcher();
 /* Запускает посылку файла */
-int recieve_file(const char *filename, const unsigned char *hsum,
+int receive_file(const char *filename, const unsigned char *hsum,
         unsigned long fsize, const struct sockets_queue *q);
 
 #endif

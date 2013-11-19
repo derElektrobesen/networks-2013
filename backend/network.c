@@ -149,7 +149,7 @@ static int create_client(const char *addr) {
  * Возвращает число считанных байт если передача завершена, -1 в случае ошибки
  * и 0 если еще не все сообщение было получено
  */
-static ssize_t recieve_data(int sock, char *buf, size_t len) {
+static ssize_t receive_data(int sock, char *buf, size_t len) {
     ssize_t rlen = 0;
     char size[MSG_LEN_T_SIZE];
     struct message *msg = msgs + sock;
@@ -160,7 +160,7 @@ static ssize_t recieve_data(int sock, char *buf, size_t len) {
     if (msg->bytes_count == 0) {
         if (recv(sock, size, sizeof(size), MSG_WAITALL) != sizeof(size)) {
             rlen = -1;
-            print_hex_str("failed data recieved", size, sizeof(size));
+            print_hex_str("failed data received", size, sizeof(size));
             err_n(OTHER, "recv data size failure");
         } else {
             memcpy(&(msg->bytes_count), size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
@@ -229,7 +229,7 @@ static int process_sockets(fd_set *set, socket_callback callback,
         if (max_sock < *(opened_sockets + i))
             max_sock = *(opened_sockets + i);
         if (FD_ISSET(*(opened_sockets + i), set)) {
-            bytes_read = recieve_data(*(opened_sockets + i), buf, sizeof(buf));
+            bytes_read = receive_data(*(opened_sockets + i), buf, sizeof(buf));
             if (bytes_read < 0) {
                 log(CLIENT, "connection closed: %d", *(opened_sockets + i));
                 close(*(opened_sockets + i));
@@ -237,7 +237,7 @@ static int process_sockets(fd_set *set, socket_callback callback,
                 offset++;
                 i--;
             } else if (bytes_read) {
-                log(OTHER, "bytes recieved: %lu", bytes_read);
+                log(OTHER, "bytes received: %lu", bytes_read);
                 if (buf[bytes_read - 1] == '\n')
                     bytes_read--;
                 buf[bytes_read] = 0;
@@ -252,7 +252,7 @@ static int process_sockets(fd_set *set, socket_callback callback,
 /**
  * Функция ожидает новые соединения от клиентов.
  */
-static int recieve_messages(int sock, socket_callback callback) {
+static int receive_messages(int sock, socket_callback callback) {
     int cli_sock = -1;
     int sockets[MAX_CONNECTIONS];
     int sockets_count = 0;
@@ -524,7 +524,7 @@ static int create_server(socket_callback callback) {
 
     log(SERVER, "server created: %d", srv_sock);
 
-    recieve_messages(srv_sock, callback);
+    receive_messages(srv_sock, callback);
     close(srv_sock);
     return 0;
 }
@@ -610,7 +610,7 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
             q->addrs[i] = q->addrs[i + offset];
         }
         if (FD_ISSET(q->sockets[i], set)) {
-            bytes_read = recieve_data(q->sockets[i], msg, sizeof(msg));
+            bytes_read = receive_data(q->sockets[i], msg, sizeof(msg));
             if (bytes_read < 0) {
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;
@@ -635,7 +635,7 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
  * с которыми клиент установил соединение.
  * Если соединений нет, то процесс засыпает на некоторое время.
  */
-static int recieve_servers_messages(
+static int receive_servers_messages(
         socket_callback process_srv_msg_callback,
         queue_dispatcher dispatcher,
         struct sockets_queue *q) {
@@ -721,5 +721,5 @@ int start_client(socket_callback process_srv_msg_callback,
         queue_dispatcher dispatcher,
         struct sockets_queue *q) {
     q->count = 0;
-    return recieve_servers_messages(process_srv_msg_callback, dispatcher, q);
+    return receive_servers_messages(process_srv_msg_callback, dispatcher, q);
 }

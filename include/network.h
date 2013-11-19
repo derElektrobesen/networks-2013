@@ -33,7 +33,7 @@ struct message {
 
 /* Types */
 typedef int (*socket_callback)(int sender_sock,
-        const char *recieved_data, size_t data_len);
+        const char *received_data, size_t data_len);
 typedef int (*server_response_callback)(struct sockets_queue *queue);
 
 /* Prototypes */
