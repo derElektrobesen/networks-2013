@@ -24,10 +24,11 @@ static void _get_cache(int id, const unsigned char *data,
                 count++;
         }
     } else {
-        memcpy(c->data, data, len > data_len ? data_len : len);
+        if (data_len > len)
+            data_len = len;
+        memcpy(c->data, data, data_len);
         if (!(count = data_len / DATA_BLOCK_LEN))
             count++;
-        log(SERVER, "pieces_count: %lu", count);
     }
     c->start_piece = c->end_piece;
     c->end_piece += count;

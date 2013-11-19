@@ -160,8 +160,6 @@ static ssize_t receive_data(int sock, char *buf, size_t len) {
     if (msg->bytes_count == 0) {
         if (recv(sock, size, sizeof(size), MSG_WAITALL) != sizeof(size)) {
             rlen = -1;
-            print_hex_str("failed data received", size, sizeof(size));
-            err_n(OTHER, "recv data size failure");
         } else {
             memcpy(&(msg->bytes_count), size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
             log(OTHER, ">>> receive_data, length = %lu, sock = %d", msg->bytes_count, sock);
@@ -218,7 +216,7 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
 static int process_sockets(fd_set *set, socket_callback callback,
         int *opened_sockets, int *max_index) {
     int i;
-    size_t bytes_read;
+    ssize_t bytes_read;
     char buf[BUF_MAX_LEN];
     int offset;
     int max_sock = -1;
