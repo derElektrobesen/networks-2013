@@ -596,7 +596,7 @@ static int process_broadcast_servers(int sock, struct sockets_queue *q) {
  * Вызывается callback-функция для обработки сообщения.
  */
 static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback callback) {
-    size_t bytes_read;
+    ssize_t bytes_read;
     char msg[BUF_MAX_LEN];
     int i, offset;
 
