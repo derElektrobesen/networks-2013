@@ -24,7 +24,7 @@ static void _get_cache(int id, const unsigned char *data,
                 count++;
         }
     } else {
-        memcpy(c->data, data, data_len);
+        memcpy(c->data, data, len > data_len ? data_len : len);
         if (!(count = data_len / DATA_BLOCK_LEN))
             count++;
         log(SERVER, "pieces_count: %lu", count);

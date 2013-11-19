@@ -25,6 +25,12 @@
 #define MAX_INTERFACES_COUNT    16
 #define IDENT_MSG               "Dzhumagulov_Berezhnoy_IU_7_2013"
 
+struct message {
+    char message[BUF_MAX_LEN];
+    ssize_t bytes_count;
+    ssize_t bytes_read;
+};
+
 /* Types */
 typedef int (*socket_callback)(int sender_sock,
         const char *recieved_data, size_t data_len);

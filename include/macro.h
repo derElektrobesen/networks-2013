@@ -29,12 +29,10 @@
         err(cli, f_str " : %s", ##args, strerror(errno)) /* \n don't needed */
 #   define locate log(OTHER, "%s, %d", __FUNCTION__, __LINE__)
 #   define convert_hex_str(buf, buflen, str, len) {             \
-        int i; char *ptr = (buf);                               \
-        char *data = (char *)str;                               \
-        for (i = 0; i < (len); i++) {                           \
-            snprintf(ptr, (buflen) - i * 3, "%02x", *(data)++); \
-            ptr += 2;                                           \
-        }                                                       \
+        int i;                                                  \
+        for (i = 0; i < (len); i++)                             \
+            snprintf((buf) + i * 2, (buflen) - i * 2, "%02x", (int)*((str) + i)); \
+        *((buf) + 2 * (len) + 1) = 0;                           \
     }
 #   define print_hex_str(msg, str, len) {                       \
         char r[255];                                            \
@@ -45,7 +43,7 @@
         char r[255];                                            \
         convert_hex_str(r, sizeof(r), (f_ptr)->hsumm, MD5_DIGEST_LENGTH); \
         log(OTHER, "pack_id: %d, piece_id: %d, file_id: %d, "   \
-                   "error: %d, hsumm:%s, fname: %s",           \
+                   "error: %d, hsumm: %s, fname: %s",           \
                    (f_ptr)->pack_id, (f_ptr)->piece_id,         \
                    (f_ptr)->file_id, (f_ptr)->error,            \
                    r, (f_ptr)->file_name);                      \

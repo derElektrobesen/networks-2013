@@ -1,5 +1,7 @@
 #include "../include/network.h"
 
+static struct message msgs[MAX_CONNECTIONS];
+
 /**
  * Функция возвращает ошибку, если
  * инициализация сервера закончилась неудачно.
@@ -144,27 +146,42 @@ static int create_client(const char *addr) {
 
 /**
  * Ф-ия ожидает получения всего куска данных
+ * Возвращает число считанных байт если передача завершена, -1 в случае ошибки
+ * и 0 если еще не все сообщение было получено
  */
 static ssize_t recieve_data(int sock, char *buf, size_t len) {
     ssize_t rlen = 0;
     char size[MSG_LEN_T_SIZE];
+    struct message *msg = msgs + sock;
     
     if (sizeof(size_t) != MSG_LEN_T_SIZE)
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
 
-    if (recv(sock, size, MSG_LEN_T_SIZE, MSG_WAITALL) != MSG_LEN_T_SIZE) {
-        rlen = -1;
-        print_hex_str("failed data recieved", size, MSG_LEN_T_SIZE);
-        err_n(OTHER, "recv data size failure");
+    if (msg->bytes_count == 0) {
+        if (recv(sock, size, sizeof(size), MSG_WAITALL) != sizeof(size)) {
+            rlen = -1;
+            print_hex_str("failed data recieved", size, sizeof(size));
+            err_n(OTHER, "recv data size failure");
+        } else {
+            memcpy(&(msg->bytes_count), size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
+            log(OTHER, ">>> receive_data, length = %lu, sock = %d", msg->bytes_count, sock);
+            msg->bytes_read = 0;
+        }
     } else {
-        memcpy(&rlen, size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
-        print_hex_str("data size recieved", size, MSG_LEN_T_SIZE);
-        print_hex_str("data size copied", &rlen, sizeof(rlen));
-        log(OTHER, ">>> receive_data, length = %lu, sock = %d", rlen, sock);
-
-        if (recv(sock, buf, rlen, MSG_WAITALL) != rlen) {
+        rlen = recv(sock, buf, msg->bytes_count - msg->bytes_read, 0);
+        if (!rlen) {
             rlen = -1;
             err_n(OTHER, "recv data failure");
+            msgs[sock].bytes_count = 0;
+        } else {
+            memcpy(msg->message + msg->bytes_read, buf, rlen);
+            msg->bytes_read += rlen;
+            if (msg->bytes_read == msg->bytes_count) {
+                rlen = msg->bytes_count;
+                msg->bytes_count = 0;
+                memcpy(buf, msg->message, len > rlen ? rlen : len);
+            } else
+                rlen = 0;
         }
     }
     return rlen;
@@ -181,8 +198,6 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
 
     memcpy(size, &len, r);
-    print_hex_str("data size sent", &len, sizeof(len));
-    print_hex_str("data size copied", size, MSG_LEN_T_SIZE);
     log(OTHER, "<<< send_data, length = %lu, sock = %d", len, sock);
 
     if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
@@ -215,14 +230,14 @@ static int process_sockets(fd_set *set, socket_callback callback,
             max_sock = *(opened_sockets + i);
         if (FD_ISSET(*(opened_sockets + i), set)) {
             bytes_read = recieve_data(*(opened_sockets + i), buf, sizeof(buf));
-            log(OTHER, "bytes recieved: %lu", bytes_read);
-            if (bytes_read <= 0) {
+            if (bytes_read < 0) {
                 log(CLIENT, "connection closed: %d", *(opened_sockets + i));
                 close(*(opened_sockets + i));
                 (*max_index)--;
                 offset++;
                 i--;
-            } else {
+            } else if (bytes_read) {
+                log(OTHER, "bytes recieved: %lu", bytes_read);
                 if (buf[bytes_read - 1] == '\n')
                     bytes_read--;
                 buf[bytes_read] = 0;
@@ -596,14 +611,14 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
         }
         if (FD_ISSET(q->sockets[i], set)) {
             bytes_read = recieve_data(q->sockets[i], msg, sizeof(msg));
-            log(OTHER, "bytes read: %lu", bytes_read);
-            if (bytes_read <= 0) {
+            if (bytes_read < 0) {
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;
                 i--;
                 close(q->sockets[i]);
                 q->count--;
-            } else {
+            } else if (bytes_read) {
+                log(OTHER, "bytes read: %lu", bytes_read);
                 if (msg[bytes_read - 1] == '\n')
                     bytes_read--;
                 msg[bytes_read] = 0;
