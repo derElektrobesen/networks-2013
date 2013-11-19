@@ -380,14 +380,14 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
                 st = 1;
                 d->pieces_copied++;
                 d->full_size += ud->piece_len;
-                memcpy(d->data + (ud->piece_id - d->s_piece), ud->data, ud->piece_len);
-                ud->piece_id = -1;
+                memcpy(d->data + (ud->piece_id - d->s_piece) * DATA_BLOCK_LEN, ud->data, ud->piece_len);
+                ud->piece_len = 0;
             }
             ud++;
         }
     }
 
-    if (!st && t->pieces.cur_piece == t->pieces.max_piece_num) {
+    if (!st && t->pieces.cur_piece == t->pieces.max_piece_num + 1) {
         log(CLIENT, "receive successfully completed");
         r = 1;
     }
