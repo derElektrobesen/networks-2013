@@ -145,6 +145,7 @@ static int add_transmission(const char *filename,
         q->max_failed_piece_num = -1;
         q->cur_piece = 0;
         q->max_piece_num = file_size / DATA_BLOCK_LEN;
+        q->flushed_pieces_count = 0;
         if (file_size != q->max_piece_num * DATA_BLOCK_LEN)
             q->max_piece_num++;
 
@@ -361,7 +362,7 @@ static void push_file_data(struct file_full_data_t *data,
  * Возвращает 1 если передача была завершена
  */
 static int flush_file_data(struct file_full_data_t *data, FILE *file,
-        piece_id_t max_piece_num, const struct transmission *t) {
+        piece_id_t max_piece_num, struct transmission *t) {
     struct file_data_t *d = &(data->data);
     struct file_udata_t *ud;
     int i, r = 0, st = 0;
@@ -373,6 +374,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
             err_n(CLIENT, "fwrite failure");
 
         d->s_piece = d->f_piece;
+        t->pieces.flushed_pieces_count += d->pieces_copied;
         d->pieces_copied = 0;
         d->full_size = 0;
         d->f_piece += st_arr_len(data->data.data) / DATA_BLOCK_LEN;
@@ -392,7 +394,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
         }
     }
 
-    if (!st && t->pieces.cur_piece == t->pieces.max_piece_num + 1) {
+    if (!st && t->pieces.max_piece_num == t->pieces.flushed_pieces_count + 1) {
         log(CLIENT, "receive successfully completed");
         r = 1;
     }
