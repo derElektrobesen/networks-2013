@@ -35,6 +35,7 @@ DEFINES =   DEBUG \
 			MAX_CONNECTIONS=128 \
 			MAX_TRANSMISSIONS=8u \
 			CACHED_PIECES_COUNT=3u \
+			CACHED_QUEUE_LEN=20u \
 			HOME_DIR_PATH=\"/tmp/course_prj/downloads\" \
 			APP_DIR_PATH=\"/tmp/course_prj\" \
 			LOCK_FILE_PATH=\"/var/run/\" \

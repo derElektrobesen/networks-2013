@@ -63,7 +63,7 @@ struct file_data_t {
  */
 struct file_full_data_t {
     struct file_data_t data;
-    struct file_udata_t udata[CACHED_PIECES_COUNT];
+    struct file_udata_t udata[CACHED_QUEUE_LEN];
 };
 
 /**

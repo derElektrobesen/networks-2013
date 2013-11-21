@@ -394,7 +394,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
         }
     }
 
-    if (!st && t->pieces.max_piece_num == t->pieces.flushed_pieces_count + 1) {
+    if (!st && t->pieces.max_piece_num == t->pieces.flushed_pieces_count) {
         log(CLIENT, "receive successfully completed");
         r = 1;
     }
