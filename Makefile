@@ -16,6 +16,11 @@ F_DIR = frontend
 FORMS_DIR = $(F_DIR)/forms
 PATCHER = $(F_DIR)/patcher.pl
 
+HOME = /tmp/course_prj
+INTERFACE_CLI_SOCKET_PATH = $(HOME)/i_cli.sock
+INTERFACE_SRV_SOCKET_PATH = $(HOME)/i_srv.sock
+MSG_LEN_T_SIZE = 8
+
 DEFINES =   DEBUG \
 			PORT=7777 \
 			SHORT_TIMEOUT=2 \
@@ -36,11 +41,13 @@ DEFINES =   DEBUG \
 			MAX_TRANSMISSIONS=8u \
 			CACHED_PIECES_COUNT=3u \
 			CACHED_QUEUE_LEN=20u \
-			HOME_DIR_PATH=\"/tmp/course_prj/downloads\" \
-			APP_DIR_PATH=\"/tmp/course_prj\" \
+			HOME_DIR_PATH=\"$(HOME)/downloads\" \
+			APP_DIR_PATH=\"$(HOME)\" \
 			LOCK_FILE_PATH=\"/var/run/\" \
+			INTERFACE_CLI_SOCKET_PATH=\"$(INTERFACE_CLI_SOCKET_PATH)\" \
+			INTERFACE_SRV_SOCKET_PATH=\"$(INTERFACE_SRV_SOCKET_PATH)\" \
 			FILE_PIECE_SIZE=\(10*BUF_MAX_LEN\) \
-			MSG_LEN_T_SIZE=8 \
+			MSG_LEN_T_SIZE=$(MSG_LEN_T_SIZE) \
 			DONT_DO_SRAND \
 			USE_LOOPBACK
 
@@ -62,12 +69,28 @@ CLI_SRCS = cli.c
 CLI_OBJS = $(CLI_SRCS:%.c=$(O_DIR)/%.o)
 
 FORMS = main_form.ui about_form.ui
-PY_FILES = main
+F_MAIN_FILE = $(F_DIR)/main.py
+PY_FILES = main statuswidget tablewidget proto socket thread
 UIGEN = pyuic4
 
-PARAMS = $(FLAGS) $(CFLAGS) $(DEBUG_FLAGS) $(DEFS)
-UI_RULES = statusWidget:StatusWidget:statuswidget*
+DEFAULT_POSTFIX = _d
 
+PARAMS = $(FLAGS) $(CFLAGS) $(DEBUG_FLAGS) $(DEFS)
+UI_RULES_ = statusWidget:StatusWidget:statuswidget \
+		   ../images:images \
+		   tableView_main:MainTable:tablewidget \
+		   tableView_client:ClientTable:tablewidget \
+		   tableView_server:ServerTable:tablewidget
+MAIN_RULES_ = \
+			CLI_SOCK_PATH:\"$(INTERFACE_CLI_SOCKET_PATH)\" \
+			SRV_SOCK_PATH:\"$(INTERFACE_SRV_SOCKET_PATH)\" \
+			MSG_MAX_LEN:$(BUF_MAX_LEN) \
+			LEN_MSG_LEN:$(MSG_LEN_T_SIZE)
+
+CREATE_RULE = $(shell echo '$1' | perl -e 'my $$r = ""; while (<>) { s/\s+/*/g; $$r .= $$_; } print "$$r"')
+UI_RULES = $(call CREATE_RULE, $(UI_RULES_))
+MAIN_RULES = $(call CREATE_RULE, $(MAIN_RULES_))
+ 
 .PHONY: all clean
 
 all: srv cli gui
@@ -81,11 +104,12 @@ $(O_DIR)/%.o: $(B_DIR)/%.c | $(O_DIR)
 $(FORMS_DIR)/%.py: $(FORMS_DIR)/%.ui
 	$(UIGEN) $< -o $@
 	$(PATCHER) -i $@ -m $(UI_RULES) -o $@.new -w $(shell pwd)/$(F_DIR)
-	@rm -fv $@
-	@mv -fv $@.new $@
+	@rm -f $@
+	@mv -f $@.new $@
 
-$(F_DIR)/%: $(F_DIR)/%_default.py
-	$(PATCHER) -i $@_default.py -o $@.py -w $(shell pwd)/$(F_DIR) -e forms
+$(F_DIR)/%.py: $(F_DIR)/%$(DEFAULT_POSTFIX).py
+	$(PATCHER) -i $^ -m $(MAIN_RULES) -o $(F_DIR)/$*.py -w $(shell pwd)/$(F_DIR)
+	@chmod +x $(F_MAIN_FILE)
 
 srv: $(GLOBAL_OBJS:%.c=$(B_DIR)/%.c) $(SRV_OBJS:%.c=$(B_DIR)/%.c) $(MAIN_FILE)
 	$(CC) $(PARAMS) -D$(SRV) -c $(MAIN_FILE) -o $(O_DIR)/server.o
@@ -95,9 +119,10 @@ cli: $(GLOBAL_OBJS) $(CLI_OBJS) $(MAIN_FILE)
 	$(CC) $(PARAMS) -D$(CLI) -c $(MAIN_FILE) -o $(O_DIR)/client.o
 	$(CC) $(PARAMS) -D$(CLI) $(O_DIR)/client.o $(GLOBAL_OBJS) $(CLI_OBJS) -o $(CLI_TAR)
 
-gui: $(PY_FILES:%=$(F_DIR)/%) $(FORMS:%.ui=$(FORMS_DIR)/%.py) $(PATCHER)
+gui: $(PY_FILES:%=$(F_DIR)/%.py) $(FORMS:%.ui=$(FORMS_DIR)/%.py) $(PATCHER)
 
 clean:
-	@rm -f $(O_DIR)/* $(SRV_TAR) $(CLI_TAR) $(FORMS_DIR)/*.py -v
+	@rm -f $(O_DIR)/* $(SRV_TAR) $(CLI_TAR) $(FORMS:%.ui=$(FORMS_DIR)/%.py) $(PY_FILES:%=$(F_DIR)/%.py)
+	@echo "Directory has been successfully cleaned."
 
 -include $(O_DIR)/*.d

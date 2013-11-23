@@ -365,11 +365,21 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
         piece_id_t max_piece_num, struct transmission *t) {
     struct file_data_t *d = &(data->data);
     struct file_udata_t *ud;
+    FILE *ffff;
+    char a[20], b[20];
     int i, r = 0, st = 0;
 
     if (d->pieces_copied == d->f_piece - d->s_piece) {
         /* Данные можно сбрасывать на жесткий диск */
-        log(SERVER, "writing %lu bytes", d->full_size);
+        log(CLIENT, "writing %lu bytes", d->full_size);
+        ffff = fopen("/tmp/course_prj/results", "a");
+        memcpy(a, d->data, 20);
+        memcpy(b, d->data + d->full_size - 20, 20);
+        a[19] = 0;
+        b[19] = 0;
+        fprintf(ffff, "Writing %lu bytes: start piece id: %d, end piece id: %d, start 10 bytes: %s, "
+                "end 10 bytes: %s\n", d->full_size, d->s_piece, d->f_piece, a, b);
+        fclose(ffff);
         if (fwrite(d->data, sizeof(d->data[0]), d->full_size, file) != d->full_size)
             err_n(CLIENT, "fwrite failure");
 

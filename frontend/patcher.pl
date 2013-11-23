@@ -39,7 +39,7 @@ my %mask;
 if ($opts{m}) {
     for ($opts{m} =~ /[^*]+/g) {
         my @m = $_ =~ /[^:]+/g;
-        $mask{$m[0]} = { text => $m[1], module => $m[2] };
+        $mask{$m[0]} = { text => $m[1], module => $m[2] || ''};
     }
 }
 
@@ -48,7 +48,11 @@ while (my $str = <$inf>) {
     next unless $str;
 
     for (keys %mask) {
-        $str =~ s/(\b$_\s*=\s*)([^(]+)/$1$mask{$_}->{text}/g;
+        if ($mask{$_}->{module}) {
+            $str =~ s/(\b$_\s*=\s*)([^(]+)/$1$mask{$_}->{text}/g;
+        } else {
+            $str =~ s/$_/$mask{$_}->{text}/g;
+        }
     }
     if (!$done && $str =~ /^from\s/) {
         if ($opts{e} or $opts{w}) {
@@ -62,8 +66,10 @@ while (my $str = <$inf>) {
                 print $outf "sys.path.append('$opts{w}/$_')\n" for $opts{e} =~ /[^,]+/g;
             }
         }
-        print $outf "\nfrom $mask{$_}->{module} import $mask{$_}->{text}\n" for keys %mask;
-        print $outf "\n";
+        for (keys %mask) {
+            print $outf "\nfrom $mask{$_}->{module} import $mask{$_}->{text}" if $mask{$_}->{module};
+        }
+        print $outf "\n\n";
         $done = 1;
     }
     print $outf $str;
