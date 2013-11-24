@@ -5,7 +5,7 @@ use warnings;
 use Digest::MD5;
 
 my $home = "/tmp/course_prj";
-my @names = ("$home/before", "$home/output_data", "$home/srv_cache_get", "$home/input_data");
+my @names = ("$home/before", "$home/output_data", "$home/srv_cache_get", "$home/input_data", "$home/read_file_piece");
 
 my $test_file_name = 'test';
 
