@@ -182,6 +182,11 @@ static void send_answer(const struct srv_fields *f, int sock) {
     size_t msg_len;
     char msg[BUF_MAX_LEN];
 
+    static FILE *st_f = NULL;
+    if (!st_f)
+        st_f = fopen("/tmp/course_prj/before", "wb");
+    fwrite(f->piece, f->piece_len, 1, st_f);
+    
     msg_len = decode_srv_msg(f, msg);
     log_srv_fields(f);
     send_data(sock, msg, msg_len, 0);
