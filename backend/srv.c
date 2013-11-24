@@ -18,10 +18,6 @@ static void _get_cache(int id, const unsigned char *data,
     if (!data) {
         fseek(c->file, start, SEEK_SET);
         nlen = fread(c->data, sizeof(*(c->data)), len, c->file);
-        static FILE *st_f = NULL;
-        if (!st_f)
-            st_f = fopen("/tmp/course_prj/srv_cache_get", "wb");
-        fwrite(c->data, nlen, 1, st_f);
         if (nlen != len) {
             count = nlen / DATA_BLOCK_LEN;
             if (count * DATA_BLOCK_LEN != nlen)
@@ -31,6 +27,12 @@ static void _get_cache(int id, const unsigned char *data,
         if (data_len > len)
             data_len = len;
         memcpy(c->data, data, data_len);
+
+        static FILE *st_f = NULL;
+        if (!st_f)
+            st_f = fopen("/tmp/course_prj/srv_cache_get", "wb");
+        fwrite(c->data, data_len, 1, st_f);
+
         if (!(count = data_len / DATA_BLOCK_LEN))
             count++;
     }
