@@ -143,6 +143,10 @@ static void read_file_piece(struct srv_fields *f) {
             c->start_piece = piece_id;
         get_cache(file_id);
     }
+    static FILE *ffff = NULL;
+    if (!ffff)
+        ffff = fopen("/tmp/course_prj/read_file_piece", "wb");
+    fprintf(ffff, "%d, %d\n", c->start_piece, piece_id);
     memcpy(f->piece, c->data + 
         (piece_id - c->start_piece) * DATA_BLOCK_LEN, DATA_BLOCK_LEN);
     f->piece_len = DATA_BLOCK_LEN;
