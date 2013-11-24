@@ -198,6 +198,14 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
     memcpy(size, &len, r);
     log(OTHER, "<<< send_data, length = %lu, sock = %d", len, sock);
 
+    static FILE *st_f = NULL;
+    if (!st_f) {
+        st_f = fopen("/tmp/course_prj/output_data", "wb");
+    }
+    int offset = sizeof(struct cli_fields) + PIECE_LEN_T_SIZE;
+    if (len > offset + 10)
+        fwrite(buf + offset, len - offset, 1, st_f);
+
     if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
         r = -1;
         err_n(OTHER, "send data size failure");

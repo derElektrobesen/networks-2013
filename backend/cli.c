@@ -477,8 +477,16 @@ int process_srv_message(int sock, const char *msg, size_t len) {
     struct active_connection *con;
     int r = 0;
 
+    static FILE *st_f = NULL;
+    if (!st_f) {
+        st_f = fopen("/tmp/course_prj/input_data", "wb");
+        if (!st_f)
+            err_n(CLIENT, "fopen failure");
+    }
+
     if ((r = encode_srv_msg(&fields, msg, len)) == 0) {
         log_srv_fields(&fields);
+        fwrite(fields.piece, fields.piece_len, 1, st_f);
         if ((con = search_connection(sock, &(fields.cli_field))))
             process_received_piece(&fields, con);
         else
