@@ -202,7 +202,7 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
     if (!st_f) {
         st_f = fopen("/tmp/course_prj/output_data", "wb");
     }
-    int offset = sizeof(struct cli_fields) + PIECE_LEN_T_SIZE;
+    int offset = 288 + sizeof(size_t);
     if (len > offset + 10)
         fwrite(buf + offset, len - offset, 1, st_f);
 
