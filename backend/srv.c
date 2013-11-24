@@ -140,7 +140,7 @@ static void read_file_piece(struct srv_fields *f) {
     struct file_cache *c = &(f_descr.cache[file_id]);
     if (c->start_piece > piece_id || c->end_piece <= piece_id) {
         if (c->start_piece > piece_id)
-            c->start_piece = piece_id;
+            c->end_piece = piece_id;
         get_cache(file_id);
     }
     static FILE *ffffff = NULL;
