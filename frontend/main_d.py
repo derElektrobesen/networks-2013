@@ -6,6 +6,21 @@ from PyQt4.QtGui import *
 from forms import *
 from thread import Thread
 
+import json
+
+class MainExcetion(Exception):
+    def __init__(self):
+        super(eval(self.__class__.__name__), self).__init__()
+
+__ex_classes = "WrongActionException".rstrip().split()
+
+for c in __ex_classes:
+    exec("""
+class {class_name}(MainException):
+    def __init__(self):
+        super(eval(self.__class__.__name__), self).__init__()
+    """.format(class_name = c))
+
 class MainWindow(QMainWindow, FormMain):
     srv = 'server'
     cli = 'client'
@@ -52,7 +67,31 @@ class MainWindow(QMainWindow, FormMain):
                 msg), QMessageBox.Ok)
 
     def handle_backend_message(self, msg, sender = None):
-        pass
+        try:
+            self.__handle_backend_message(msg, sender)
+        except MainError as e:
+            self.handle_error(type(e).__name__, e.args[0])
+
+    def __handle_backend_message(self, msg, sender = None):
+        data = json.loads(msg, encoding='utf-8')
+        if data['action'] == START_TRM:
+            pass
+        elif data['action'] == STOP_TRM:
+            pass
+        elif data['action'] == PACKAGE_SENT:
+            pass
+        elif data['action'] == PACKAGE_RECIEVED:
+            pass
+        elif data['action'] == SERVER_ADDED:
+            pass
+        elif data['action'] == CLIENT_ADDED:
+            pass
+        elif data['action'] == SERVER_REMOVED:
+            pass
+        elif data['action'] == CLIENT_REMOVED:
+            pass
+        else:
+            raise WrongActionException
 
 def main(argv):
     app = QApplication(argv, True)

@@ -16,6 +16,17 @@ F_DIR = frontend
 FORMS_DIR = $(F_DIR)/forms
 PATCHER = $(F_DIR)/patcher.pl
 
+# gui actions
+START_TRM = 0
+STOP_TRM = 1
+PACKAGE_SENT = 2
+PACKAGE_RECIEVED = 3
+SERVER_ADDED = 4
+CLIENT_ADDED = 5
+SERVER_REMOVED = 6
+CLIENT_REMOVED = 7
+
+
 HOME = /tmp/course_prj
 INTERFACE_CLI_SOCKET_PATH = $(HOME)/i_cli.sock
 INTERFACE_SRV_SOCKET_PATH = $(HOME)/i_srv.sock
@@ -38,6 +49,14 @@ DEFINES =   DEBUG \
 			MAX_PIECES_COUNT=10000u \
 			MAX_PACK_NUM=1000000u \
 			MAX_PACK_NUM_LEN=7 \
+			START_TRM_ACT=$(START_TRM) \
+			STOP_TRM_ACT=$(STOP_TRM) \
+			PACKAGE_SENT_ACT=$(PACKAGE_SENT) \
+			PACKAGE_RECIEVED_ACT=$(PACKAGE_RECIEVED) \
+			SERVER_ADDED_ACT=$(SERVER_ADDED) \
+			CLIENT_ADDED_ACT=$(CLIENT_ADDED) \
+			SERVER_REMOVED_ACT=$(SERVER_REMOVED) \
+			CLIENT_REMOVED_ACT=$(CLIENT_REMOVED) \
 			MAX_CONNECTIONS=128 \
 			MAX_TRANSMISSIONS=8u \
 			CACHED_PIECES_COUNT=3u \
@@ -71,7 +90,7 @@ CLI_OBJS = $(CLI_SRCS:%.c=$(O_DIR)/%.o)
 
 FORMS = main_form.ui about_form.ui
 F_MAIN_FILE = $(F_DIR)/main.py
-PY_FILES = main statuswidget tablewidget proto net_sock thread
+PY_FILES = main statuswidget tablewidget net_sock thread
 UIGEN = pyuic4
 UIGEN_EXISTS = $(shell $(UIGEN) --version 2>/dev/null)
 
@@ -88,7 +107,15 @@ MAIN_RULES_ = \
 			CLI_SOCK_PATH:\"$(INTERFACE_CLI_SOCKET_PATH)\" \
 			SRV_SOCK_PATH:\"$(INTERFACE_SRV_SOCKET_PATH)\" \
 			MSG_MAX_LEN:$(BUF_MAX_LEN) \
-			LEN_MSG_LEN:$(MSG_LEN_T_SIZE)
+			LEN_MSG_LEN:$(MSG_LEN_T_SIZE) \
+			START_TRM:$(START_TRM) \
+			STOP_TRM:$(STOP_TRM) \
+			PACKAGE_SENT:$(PACKAGE_SENT) \
+			PACKAGE_RECIEVED:$(PACKAGE_RECIEVED) \
+			SERVER_ADDED:$(SERVER_ADDED) \
+			CLIENT_ADDED:$(CLIENT_ADDED) \
+			SERVER_REMOVED:$(SERVER_REMOVED) \
+			CLIENT_REMOVED:$(CLIENT_REMOVED)
 
 CREATE_RULE = $(shell echo '$1' | perl -e 'my $$r = ""; while (<>) { s/\s+/*/g; $$r .= $$_; } print "$$r"')
 UI_RULES = $(call CREATE_RULE, $(UI_RULES_))
@@ -106,7 +133,7 @@ $(O_DIR)/%.o: $(B_DIR)/%.c | $(O_DIR)
 
 $(FORMS_DIR)/%.py: $(FORMS_DIR)/%.ui
 ifeq ($(UIGEN_EXISTS),)
-	@echo "pyiuc4 not found"
+	@echo "ERROR: pyiuc4 not found"
 else
 	$(UIGEN) $< -o $@
 	$(PATCHER) -i $@ -m $(UI_RULES) -o $@.new -w $(shell pwd)/$(F_DIR)

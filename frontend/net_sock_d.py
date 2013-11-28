@@ -8,10 +8,10 @@ class SocketException(Exception):
     def __init__(self):
         super(eval(self.__class__.__name__), self).__init__()
 
-classes = "NoParamsExceptions MessageLenException BrokenPipeException \
+__ex_classes = "NoParamsExceptions MessageLenException BrokenPipeException \
     NoConnectionAcceptedException".rstrip().split()
 
-for c in classes:
+for c in __ex_classes:
     exec("""
 class {class_name}(SocketException):
     def __init__(self):
