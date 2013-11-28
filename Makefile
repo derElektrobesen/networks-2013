@@ -20,6 +20,7 @@ HOME = /tmp/course_prj
 INTERFACE_CLI_SOCKET_PATH = $(HOME)/i_cli.sock
 INTERFACE_SRV_SOCKET_PATH = $(HOME)/i_srv.sock
 MSG_LEN_T_SIZE = 8
+BUF_MAX_LEN=8000
 
 DEFINES =   DEBUG \
 			PORT=7777 \
@@ -28,7 +29,7 @@ DEFINES =   DEBUG \
 			ALARM_U_DELAY=10000 \
 			ALARM_S_DELAY=0 \
 			FILE_TIMEOUT=10000u \
-			BUF_MAX_LEN=8000l\
+			BUF_MAX_LEN=$(BUF_MAX_LEN)l\
 			BUF_MAX_LEN_TSIZE=4 \
 			CONTROL_INFO_LEN=32 \
 			FILE_NAME_MAX_LEN=255 \
@@ -70,13 +71,14 @@ CLI_OBJS = $(CLI_SRCS:%.c=$(O_DIR)/%.o)
 
 FORMS = main_form.ui about_form.ui
 F_MAIN_FILE = $(F_DIR)/main.py
-PY_FILES = main statuswidget tablewidget proto socket thread
+PY_FILES = main statuswidget tablewidget proto net_sock thread
 UIGEN = pyuic4
 UIGEN_EXISTS = $(shell $(UIGEN) --version 2>/dev/null)
 
 DEFAULT_POSTFIX = _d
 
 PARAMS = $(FLAGS) $(CFLAGS) $(DEBUG_FLAGS) $(DEFS)
+
 UI_RULES_ = statusWidget:StatusWidget:statuswidget \
 		   ../images:images \
 		   tableView_main:MainTable:tablewidget \
