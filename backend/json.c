@@ -881,3 +881,11 @@ void json_value_free (json_value * value)
    json_value_free_ex (&settings, value);
 }
 
+void json_print (json_char **keys, json_char **values, int count, char *dest, int maxlen)
+{
+   int i, offset;
+   *dest = '{';
+   for (i = 0, offset = 0; i < count && maxlen > offset; i++)
+      offset += snprintf(dest + offset, maxlen - offset, "\"%s\":\"%s\",", keys[i], values[i]);
+   dest[offset >= maxlen ? maxlen - 1 : offset] = '}';
+}

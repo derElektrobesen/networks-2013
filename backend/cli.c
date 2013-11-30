@@ -8,7 +8,7 @@ static struct transmissions t_descr = {
     .count = 0,
     .openned_trms = { [0 ... (MAX_TRANSMISSIONS - 1)] = 1 },
 };
-
+static const struct gui_actions *g_acts;
 
 /**
  * Функция отправляет запрос на получение куска файла
@@ -489,4 +489,13 @@ int process_srv_message(int sock, const char *msg, size_t len) {
             r = -1;
     }
     return r;
+}
+
+/*
+ * Ф-ия выставляет callback ф-ии для обработки и посылки сообщений
+ * backend'a
+ * TODO
+ */
+void setup_gui_acts(struct gui_actions *acts) {
+    g_acts = acts;
 }

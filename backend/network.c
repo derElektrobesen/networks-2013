@@ -1,6 +1,7 @@
 #include "../include/network.h"
 
 static struct message msgs[MAX_CONNECTIONS];
+static struct gui_actions *g_acts;
 
 /**
  * Функция возвращает ошибку, если
@@ -52,6 +53,164 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
         err_no = errno;
         return init_server_err(sock, err_no);
     }
+
+    return sock;
+}
+
+/**
+ * Ф-ия ожидает получения всего куска данных
+ * Возвращает число считанных байт если передача завершена, -1 в случае ошибки
+ * и 0 если еще не все сообщение было получено
+ */
+static ssize_t receive_data(int sock, char *buf, size_t len) {
+    ssize_t rlen = 0;
+    char size[MSG_LEN_T_SIZE];
+    struct message *msg = msgs + sock;
+    
+    if (sizeof(size_t) != MSG_LEN_T_SIZE)
+        err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
+
+    if (msg->bytes_count == 0) {
+        if (recv(sock, size, sizeof(size), MSG_WAITALL) != sizeof(size)) {
+            rlen = -1;
+        } else {
+            memcpy(&(msg->bytes_count), size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
+            log(OTHER, ">>> receive_data, length = %lu, sock = %d", msg->bytes_count, sock);
+            msg->bytes_read = 0;
+        }
+    } else {
+        rlen = recv(sock, buf, msg->bytes_count - msg->bytes_read, 0);
+        if (!rlen) {
+            rlen = -1;
+            err_n(OTHER, "recv data failure");
+            msgs[sock].bytes_count = 0;
+        } else {
+            memcpy(msg->message + msg->bytes_read, buf, rlen);
+            msg->bytes_read += rlen;
+            if (msg->bytes_read == msg->bytes_count) {
+                rlen = msg->bytes_count;
+                msg->bytes_count = 0;
+                memcpy(buf, msg->message, len > rlen ? rlen : len);
+            } else
+                rlen = 0;
+        }
+    }
+    return rlen;
+}
+
+/**
+ * Ф-ия посылает данные сокету
+ */
+ssize_t send_data(int sock, char *buf, size_t len, int flags) {
+    char size[MSG_LEN_T_SIZE];
+    ssize_t r = sizeof(len) < MSG_LEN_T_SIZE ? sizeof(len) : MSG_LEN_T_SIZE;
+
+    if (sizeof(size_t) != MSG_LEN_T_SIZE)
+        err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
+
+    memcpy(size, &len, r);
+    log(OTHER, "<<< send_data, length = %lu, sock = %d", len, sock);
+
+    if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
+        r = -1;
+        err_n(OTHER, "send data size failure");
+    } else if (send(sock, buf, len, flags) != len) {
+        r = -1;
+        err_n(OTHER, "send data failure");
+    } else
+        r = 0;
+
+    return len;
+}
+
+/**
+ * Ф-ия ищет в списке names элемент what и если он был найден, возвращает
+ * его. Если элемент не был найден, возвращает NULL
+ */
+inline static json_char *search_option(json_char *what, json_char **names, json_char **values, unsigned int count) {
+    unsigned int i;
+    json_char *r = NULL;
+
+    for (i = 0; !r && i < count; i++)
+        if (strcmp(what, names[i]) == 0)
+            r = values[i];
+    return r;
+}
+
+/**
+ * Ф-ия извлекает строку из переданного ей элемента json структуры
+ */
+inline static json_char *get_string_value(json_value *cur) {
+    json_char *r = NULL;
+    if (cur->type == json_string)
+        r = cur->u.string.ptr;
+    return r;
+}
+
+/**
+ * Ф-ия обрабатывает переданные ей opts в зависимости от события act и вополняет
+ * соответствующие действия
+ */
+static void gui_actions_dispatcher(json_char *act, json_char **onames, json_char **opts, unsigned int ocount) {
+    /* TODO */
+}
+
+/**
+ * Ф-ия обрабатывает пришедший json и выполняет соответствующие ему действия
+ */
+static void process_gui_message(int sock) {
+    json_value *json;
+    json_char *cur;
+    json_char data[BUF_MAX_LEN];
+    json_char *names[JSON_MAX_OPTS];
+    json_char *values[JSON_MAX_OPTS];
+    unsigned int count = 0;
+    ssize_t data_len;
+    unsigned int i;
+
+    data_len = receive_data(sock, data, st_arr_len(data));
+
+    json = json_parse(data, data_len);
+
+    if (json->type == json_object) {
+        for (i = 0; i < json->u.object.length; i++) {
+            names[count] = (json->u.object.values + i)->name;
+            values[count] = get_string_value((json->u.object.values + i)->value);
+            if (!values[count])
+                err(OTHER, "JSON parsing failure on option %s", names[count]);
+            else
+                count++;
+        }
+    }
+
+    cur = search_option("action", names, values, count);
+    if (!cur)
+        err(OTHER, "Invalid JSON came: 'type' field is required");
+    else
+        gui_actions_dispatcher(cur, names, values, count);
+
+    json_value_free(json);
+}
+
+/**
+ * Ф-ия инициализирует сокет для общения с GUI и возвращает
+ * его дескриптор
+ */
+static int init_gui_sock(const char *sock_path) {
+    struct sockaddr_un addr;
+    int sock;
+
+    sock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    addr.sun_family = AF_UNIX;
+    strcpy(addr.sun_path, sock_path);
+
+    if (connect(sock, (struct sockaddr *)(&addr), sizeof(addr.sun_path) + sizeof(addr.sun_family) == -1)) {
+        err_n(OTHER, "connect failure");
+        sock = -1;
+    }
+    if (g_acts)
+        g_acts->sock = sock;
 
     return sock;
 }
@@ -145,71 +304,6 @@ static int create_client(const char *addr) {
 }
 
 /**
- * Ф-ия ожидает получения всего куска данных
- * Возвращает число считанных байт если передача завершена, -1 в случае ошибки
- * и 0 если еще не все сообщение было получено
- */
-static ssize_t receive_data(int sock, char *buf, size_t len) {
-    ssize_t rlen = 0;
-    char size[MSG_LEN_T_SIZE];
-    struct message *msg = msgs + sock;
-    
-    if (sizeof(size_t) != MSG_LEN_T_SIZE)
-        err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
-
-    if (msg->bytes_count == 0) {
-        if (recv(sock, size, sizeof(size), MSG_WAITALL) != sizeof(size)) {
-            rlen = -1;
-        } else {
-            memcpy(&(msg->bytes_count), size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
-            log(OTHER, ">>> receive_data, length = %lu, sock = %d", msg->bytes_count, sock);
-            msg->bytes_read = 0;
-        }
-    } else {
-        rlen = recv(sock, buf, msg->bytes_count - msg->bytes_read, 0);
-        if (!rlen) {
-            rlen = -1;
-            err_n(OTHER, "recv data failure");
-            msgs[sock].bytes_count = 0;
-        } else {
-            memcpy(msg->message + msg->bytes_read, buf, rlen);
-            msg->bytes_read += rlen;
-            if (msg->bytes_read == msg->bytes_count) {
-                rlen = msg->bytes_count;
-                msg->bytes_count = 0;
-                memcpy(buf, msg->message, len > rlen ? rlen : len);
-            } else
-                rlen = 0;
-        }
-    }
-    return rlen;
-}
-
-/**
- * Ф-ия посылает данные сокету
- */
-ssize_t send_data(int sock, char *buf, size_t len, int flags) {
-    char size[MSG_LEN_T_SIZE];
-    ssize_t r = sizeof(len) < MSG_LEN_T_SIZE ? sizeof(len) : MSG_LEN_T_SIZE;
-
-    if (sizeof(size_t) != MSG_LEN_T_SIZE)
-        err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
-
-    memcpy(size, &len, r);
-    log(OTHER, "<<< send_data, length = %lu, sock = %d", len, sock);
-
-    if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
-        r = -1;
-        err_n(OTHER, "send data size failure");
-    } else if (send(sock, buf, len, flags) != len) {
-        r = -1;
-        err_n(OTHER, "send data failure");
-    } else
-        r = 0;
-
-    return len;
-}
-/**
  * Получает сообщение от сокета, на котором возникло некоторое событие
  * и обрабатывает его. Удаляет сокет из массива в случае разрыва соединения.
  */
@@ -252,16 +346,23 @@ static int receive_messages(int sock, socket_callback callback) {
     int cli_sock = -1;
     int sockets[MAX_CONNECTIONS];
     int sockets_count = 0;
+    int gui_sock;
     fd_set set;
-    int max_sock_fd = sock;
+    int max_sock_fd;
     int i;
     char *err_str = "connection refused!\n";
 
     make_sock_nonblock(sock);
 
+    gui_sock = init_gui_sock(INTERFACE_SRV_SOCKET_PATH);
+    max_sock_fd = sock > gui_sock ? sock : gui_sock;
+
     while (1) {
         FD_ZERO(&set);
         FD_SET(sock, &set);
+        if (gui_sock >= 0)
+            FD_SET(gui_sock, &set);
+
         for (i = 0; i < sockets_count; i++)
             FD_SET(sockets[i], &set);
 
@@ -285,11 +386,15 @@ static int receive_messages(int sock, socket_callback callback) {
                 if (cli_sock > max_sock_fd)
                     max_sock_fd = cli_sock;
             }
-        } else {
-            max_sock_fd = process_sockets(&set, callback, sockets, &sockets_count);
-            if (max_sock_fd < sock)
-                max_sock_fd = sock;
         }
+        if (gui_sock >= 0 && FD_ISSET(gui_sock, &set))
+            process_gui_message(gui_sock);
+
+        max_sock_fd = process_sockets(&set, callback, sockets, &sockets_count);
+        if (max_sock_fd < sock)
+            max_sock_fd = sock;
+        if (max_sock_fd < gui_sock)
+            max_sock_fd = gui_sock;
     }
     return 0;
 }
@@ -637,6 +742,7 @@ static int receive_servers_messages(
     int i;
     int max_sock_fd;
     int broadcast_sock;
+    int gui_sock;
     struct sockaddr_in broadcast_sock_addr;
     struct timeval timeout = {
 #ifdef ALARM_S_DELAY
@@ -651,6 +757,8 @@ static int receive_servers_messages(
 #endif
     };
 
+    gui_sock = init_gui_sock(INTERFACE_CLI_SOCKET_PATH);
+
     broadcast_sock_addr.sin_family = AF_INET;
     broadcast_sock_addr.sin_port = htons(PORT);
     broadcast_sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -664,7 +772,10 @@ static int receive_servers_messages(
     while (1) {
         FD_ZERO(&set);
         FD_SET(broadcast_sock, &set);
-        max_sock_fd = broadcast_sock;
+        if (gui_sock >= 0)
+            FD_SET(gui_sock, &set);
+
+        max_sock_fd = broadcast_sock > gui_sock ? broadcast_sock : gui_sock;
 
         for (i = 0; i < q->count; i++) {
             FD_SET(q->sockets[i], &set);
@@ -675,6 +786,8 @@ static int receive_servers_messages(
         if (select(max_sock_fd + 1, &set, NULL, NULL, dispatcher ? &timeout : NULL) > 0) {
             if (FD_ISSET(broadcast_sock, &set))
                 process_broadcast_servers(broadcast_sock, q);
+            if (gui_sock >= 0 && FD_ISSET(gui_sock, &set))
+                process_gui_message(gui_sock);
             recv_srv_msg(&set, q, process_srv_msg_callback);
         }
 
@@ -712,8 +825,16 @@ int start_server(socket_callback process_cli_msg_callback) {
  * Функция создает клиента.
  */
 int start_client(socket_callback process_srv_msg_callback,
-        queue_dispatcher dispatcher,
-        struct sockets_queue *q) {
+        queue_dispatcher dispatcher, struct sockets_queue *q) {
     q->count = 0;
     return receive_servers_messages(process_srv_msg_callback, dispatcher, q);
+}
+
+/**
+ * Ф-ия устанавливает обработчики которые будут вызваны при посылке сообщения гую
+ * клиентом или сервером
+ */
+void setup_gui_msgs(struct gui_actions *acts) {
+    /* TODO */
+    g_acts = acts;
 }

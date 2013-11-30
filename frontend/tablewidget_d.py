@@ -22,7 +22,7 @@ class MainTable(TableWidget):
 
 class ClientTable(TableWidget):
     def __init__(self, parent = None):
-        cols = ['Адрессат', 'Скорость (кб/с)', 'Пакетов получено']
+        cols = ['Адресат', 'Скорость (кб/с)', 'Пакетов получено']
         super(ClientTable, self).__init__(parent, cols)
 
 class ServerTable(TableWidget):

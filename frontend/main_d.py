@@ -8,7 +8,10 @@ from thread import Thread
 
 import json
 
-class MainExcetion(Exception):
+import os
+os.chdir("HOME_PATH")
+
+class MainException(Exception):
     def __init__(self):
         super(eval(self.__class__.__name__), self).__init__()
 
@@ -92,6 +95,7 @@ class MainWindow(QMainWindow, FormMain):
             pass
         else:
             raise WrongActionException
+        # TODO: TERMINATE
 
 def main(argv):
     app = QApplication(argv, True)

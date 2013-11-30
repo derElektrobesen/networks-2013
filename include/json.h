@@ -259,6 +259,16 @@ void json_value_free (json_value *);
 void json_value_free_ex (json_settings * settings,
                          json_value *);
 
+/***************************************************************************
+ *                                                                         *
+ *                         Changed by Pavel Berezhnoy                      *
+ *                                                                         *
+ ***************************************************************************/
+
+/* Print given json array (as keys & values structure) into dest string.
+ * Result is json-object only
+ */
+void json_print (json_char **keys, json_char **values, int count, char *dest, int maxlen);
 
 #ifdef __cplusplus
    } /* extern "C" */

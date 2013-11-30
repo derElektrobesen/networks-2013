@@ -17,21 +17,22 @@ FORMS_DIR = $(F_DIR)/forms
 PATCHER = $(F_DIR)/patcher.pl
 
 # gui actions
-START_TRM = 0
-STOP_TRM = 1
-PACKAGE_SENT = 2
-PACKAGE_RECIEVED = 3
-SERVER_ADDED = 4
-CLIENT_ADDED = 5
-SERVER_REMOVED = 6
-CLIENT_REMOVED = 7
-
+START_TRM = \"0\"
+STOP_TRM = \"1\"
+PACKAGE_SENT = \"2\"
+PACKAGE_RECIEVED = \"3\"
+SERVER_ADDED = \"4\"
+CLIENT_ADDED = \"5\"
+SERVER_REMOVED = \"6\"
+CLIENT_REMOVED = \"7\"
+TERMINATE = \"8\"
 
 HOME = /tmp/course_prj
 INTERFACE_CLI_SOCKET_PATH = $(HOME)/i_cli.sock
 INTERFACE_SRV_SOCKET_PATH = $(HOME)/i_srv.sock
 MSG_LEN_T_SIZE = 8
 BUF_MAX_LEN=8000
+FRONTEND_HOME = $(shell pwd)/$(F_DIR)
 
 DEFINES =   DEBUG \
 			PORT=7777 \
@@ -57,6 +58,8 @@ DEFINES =   DEBUG \
 			CLIENT_ADDED_ACT=$(CLIENT_ADDED) \
 			SERVER_REMOVED_ACT=$(SERVER_REMOVED) \
 			CLIENT_REMOVED_ACT=$(CLIENT_REMOVED) \
+			TERMINATE_ACT=$(TERMINATE) \
+			JSON_MAX_OPTS=10 \
 			MAX_CONNECTIONS=128 \
 			MAX_TRANSMISSIONS=8u \
 			CACHED_PIECES_COUNT=3u \
@@ -115,7 +118,9 @@ MAIN_RULES_ = \
 			SERVER_ADDED:$(SERVER_ADDED) \
 			CLIENT_ADDED:$(CLIENT_ADDED) \
 			SERVER_REMOVED:$(SERVER_REMOVED) \
-			CLIENT_REMOVED:$(CLIENT_REMOVED)
+			CLIENT_REMOVED:$(CLIENT_REMOVED) \
+			TERMINATE:$(TERMINATE) \
+			HOME_PATH:$(FRONTEND_HOME)
 
 CREATE_RULE = $(shell echo '$1' | perl -e 'my $$r = ""; while (<>) { s/\s+/*/g; $$r .= $$_; } print "$$r"')
 UI_RULES = $(call CREATE_RULE, $(UI_RULES_))
@@ -136,13 +141,13 @@ ifeq ($(UIGEN_EXISTS),)
 	@echo "ERROR: pyiuc4 not found"
 else
 	$(UIGEN) $< -o $@
-	$(PATCHER) -i $@ -m $(UI_RULES) -o $@.new -w $(shell pwd)/$(F_DIR)
+	$(PATCHER) -i $@ -m $(UI_RULES) -o $@.new -w $(FRONTEND_HOME)
 	@rm -f $@
 	@mv -f $@.new $@
 endif
 
 $(F_DIR)/%.py: $(F_DIR)/%$(DEFAULT_POSTFIX).py
-	$(PATCHER) -i $^ -m $(MAIN_RULES) -o $(F_DIR)/$*.py -w $(shell pwd)/$(F_DIR)
+	$(PATCHER) -i $^ -m $(MAIN_RULES) -o $(F_DIR)/$*.py -w $(FRONTEND_HOME)
 	@chmod +x $(F_MAIN_FILE)
 
 srv: $(GLOBAL_OBJS:%.c=$(B_DIR)/%.c) $(SRV_OBJS:%.c=$(B_DIR)/%.c) $(MAIN_FILE)

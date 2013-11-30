@@ -4,6 +4,7 @@ static struct files_queue f_descr = {
     .count = 0,
     .positions = { [0 ... (MAX_TRANSMISSIONS - 1)] = 0 },
 };
+static const struct gui_actions *g_acts;
 
 static void _get_cache(int id, const unsigned char *data,
         unsigned long data_len) {
@@ -200,4 +201,8 @@ int process_client_message(int sender_sock, const char *msg, size_t count) {
         send_answer(&f, sender_sock);
     }
     return r;
+}
+
+void setup_gui_acts(struct gui_actions *acts) {
+    g_acts = acts;
 }

@@ -22,5 +22,6 @@ struct files_queue {
 
 /* Обрабатывает сообщения, поступающие от клиентов */
 int process_client_message(int sender_sock, const char *msg, size_t count);
+void setup_gui_acts(struct gui_actions *acts);
 
 #endif

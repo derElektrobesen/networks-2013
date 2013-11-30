@@ -15,6 +15,7 @@
 #include "macro.h"
 #include "types.h"
 #include "network.h"
+#include "json.h"
 
 /* Defines */
 #define SRV_UNKN                0   /**< Сервер недоступен                      */
@@ -131,5 +132,6 @@ void main_dispatcher();
 /* Запускает посылку файла */
 int receive_file(const char *filename, const unsigned char *hsum,
         unsigned long fsize, const struct sockets_queue *q);
+void setup_gui_acts(struct gui_actions *acts);
 
 #endif

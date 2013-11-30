@@ -7,12 +7,14 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
 #include "../include/network.h"
 
 #ifdef DAEMONIZE
 
 #   define LOCK_MODE   (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+
 inline static int lockfile(int fd) {
     struct flock fl;
     fl.l_type = F_WRLCK;
@@ -86,51 +88,33 @@ static void daemonize(const char *daemon_name) {
 #endif /* DAEMONIZE */
 
 #ifdef CLI
-#   include <time.h>
 #   include "../include/cli.h"
-
-struct sockets_queue q;
-
-void start(int sig) {
-    //receive_file("file", (const unsigned char *)"\x3d\xfe\xc4\x37\xab\x06\x1d\x83\x8b\xbb\xc4\xca\x1f\xd2\xdf\xcf", 10, &q);
-    //receive_file("RobertLove.pdf", (const unsigned char *)"\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\x09\x98\xec\xf8\x42\x7e", 3244909, &q);
-    //receive_file("RobertLove.pdf", (const unsigned char *)"\x19\x01\x67\x36\x6f\x14\xce\x7e\x9b\x26\x8d\x72\xad\x87\xf1\x48", 3244909, &q);
-    //receive_file("data", (const unsigned char *)"\x1d\x0b\xd7\x71\xd2\xa1\xb1\xbf\x4a\x25\xf2\xa4\xfc\x1f\xf6\xf9", 149114, &q);
-    //receive_file("data", (const unsigned char *)"\x0d\x0c\x91\xc7\x43\xd9\x1d\x3c\xf2\x4d\x11\xac\x3b\xf3\x9e\x9a", 2047, &q);
-    //receive_file("sample", (const unsigned char *)"\xe3\x02\xf9\xec\xd2\xd1\x89\xfa\x80\xaa\xc1\xc3\x39\x2e\x9b\x9c", 27, &q);
-    receive_file("test", (const unsigned char *)"\x19\x33\xb8\x4f\x18\xdd\xb7\x54\x5c\x63\x96\x2b\xe5\xd1\x0b\xb5", 588890, &q);
-}
+    struct sockets_queue q;
+#elif defined SRV
+#   include "../include/srv.h"
+#else
+#   error "CLI or SRV macro definition is required"
+#endif
 
 int main(int argc, char **argv) {
+    struct gui_actions acts;
+    memset(&acts, 0, sizeof(acts));
 
 #ifdef DONT_DO_SRAND
     srand(1);
 #else
     srand(time(NULL));
-#endif
-    signal(SIGUSR1, &start);
-    log(CLIENT, "Current pid: %d", getpid());
+#endif /* DONT_DO_SRAND */
 #ifdef DAEMONIZE
 	daemonize(argv[0]);
-#endif
+#endif /* DAEMONIZE */
+
+    setup_gui_acts(&acts);  /* Установить и сохранить обработчики, вызываемые при получении сообщения   */
+    setup_gui_msgs(&acts);  /* Установить и сохранить обработчики, вызываемые при посылке сообщения     */
+
+#ifdef CLI
     return start_client(&process_srv_message, &main_dispatcher, &q);
-}
-
-#elif defined SRV
-#   include "../include/srv.h"
-
-int main(int argc, char **argv) {
-#ifdef DAEMONIZE
-	daemonize(argv[0]);
-#endif
-    return start_server(&process_client_message);
-}
-
 #else
-
-int main(int argc, char **argv) {
-    err(-1, "Compile define option is required");
-    return 1;
+    return start_server(&process_client_message);
+#endif /* CLI */
 }
-
-#endif
