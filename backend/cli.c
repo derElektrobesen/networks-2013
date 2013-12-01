@@ -414,10 +414,10 @@ static void process_received_piece(const struct srv_fields *f,
     struct pieces_queue *p;
     char err_msg[255];
 
-    char buf[255], piece_buf[255];
-    char *g_opts[] = {"trmid", "piece_id"};
-    char *g_vals[] = {buf, piece_buf};
-    int count = 2;
+    char buf[255], piece_buf[255], id_buf[255];
+    char *g_opts[] = {"trmid", "piece_id", "id"};
+    char *g_vals[] = {buf, piece_buf, id_buf};
+    int count = 3;
 
     con->status = SRV_READY;
     if (f->cli_field.file_id < 0) {
@@ -429,7 +429,8 @@ static void process_received_piece(const struct srv_fields *f,
     } else {
         snprintf(buf, sizeof(buf), "%d", con->transmission_id);
         snprintf(piece_buf, sizeof(piece_buf), "%d", con->piece_id);
-        g_acts->package_recieved(g_opts, g_vals, count);
+        snprintf(id_buf, sizeof(id_buf), "%d", con->srv_sock);
+        g_acts->package_received(g_opts, g_vals, count);
 
         con->file_id = f->cli_field.file_id;
         push_file_data(con->data, f, t);

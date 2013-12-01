@@ -183,9 +183,16 @@ static void send_answer(const struct srv_fields *f, int sock) {
     size_t msg_len;
     char msg[BUF_MAX_LEN];
 
+    char buf[255];
+    char *g_opts[] = {"id"};
+    char *g_vals[] = {buf};
+    int count = 1;
+
     msg_len = decode_srv_msg(f, msg);
     log_srv_fields(f);
     send_data(sock, msg, msg_len, 0);
+
+    g_acts->package_sent(g_opts, g_vals, count);
 }
 
 int process_client_message(int sender_sock, const char *msg, size_t count) {

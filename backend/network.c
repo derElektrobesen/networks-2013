@@ -776,12 +776,24 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
     return 0;
 }
 
-static void send_gui_message(char **opts_names, char **opts_vals, unsigned int count) {
-    char msg[BUF_MAX_LEN];
+static void send_gui_message(char *act, char **opts_names, char **opts_vals, unsigned int count) {
+    static char msg[BUF_MAX_LEN];
     size_t len;
+    int i;
+
+    static char *g_opts[JSON_MAX_OPTS];
+    static char *g_vals[JSON_MAX_OPTS];
 
     if (g_acts->sock >= 0) {
-        len = json_print(opts_names, opts_vals, count, msg, sizeof(msg));
+        count = count >= JSON_MAX_OPTS ? JSON_MAX_OPTS - 1 : count;
+        for (i = 0; i < count; i++) {
+            g_opts[i] = opts_names[i];
+            g_vals[i] = opts_vals[i];
+        }
+        g_opts[count] = "action";
+        g_vals[count] = act;
+
+        len = json_print(g_opts, g_vals, count, msg, sizeof(msg));
         send_data(g_acts->sock, msg, len, 0);
     }
 }
@@ -894,18 +906,34 @@ int start_client(socket_callback process_srv_msg_callback,
     return receive_servers_messages(process_srv_msg_callback, dispatcher, q);
 }
 
+#define define_act(name) \
+inline static void g_##name(char **o, char **v, unsigned int c) { \
+    return send_gui_message(#name, o, v, c); \
+}
+
+define_act(package_sent);
+define_act(package_received);
+define_act(server_added);
+define_act(client_added);
+define_act(server_removed);
+define_act(client_removed);
+define_act(answer);
+define_act(file_received);
+
+#undef define_act
+
 /**
  * Ф-ия устанавливает обработчики которые будут вызваны при посылке сообщения гую
  * клиентом или сервером
  */
 void setup_gui_msgs(struct gui_actions *acts) {
     g_acts = acts;
-    g_acts->package_sent = &send_gui_message;
-    g_acts->package_recieved = &send_gui_message;
-    g_acts->server_added = &send_gui_message;
-    g_acts->client_added = &send_gui_message;
-    g_acts->server_removed = &send_gui_message;
-    g_acts->client_removed = &send_gui_message;
-    g_acts->answer = &send_gui_message;
-    g_acts->file_received = &send_gui_message;
+    g_acts->package_sent = &g_package_sent;
+    g_acts->package_received = &g_package_received;
+    g_acts->server_added = &g_server_added;
+    g_acts->client_added = &g_client_added;
+    g_acts->server_removed = &g_server_removed;
+    g_acts->client_removed = &g_client_removed;
+    g_acts->answer = &g_answer;
+    g_acts->file_received = &g_file_received;
 }

@@ -22,7 +22,7 @@ struct gui_actions {
     gui_recv_callback terminate;
     gui_send_callback answer;
     gui_send_callback package_sent;
-    gui_send_callback package_recieved;
+    gui_send_callback package_received;
     gui_send_callback server_added;
     gui_send_callback client_added;
     gui_send_callback server_removed;
