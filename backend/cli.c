@@ -478,7 +478,7 @@ static void error_to_str(int error, char *buf, int maxlen) {
  * Ф-ия вызывается из модуля network при получении от гуя запроса на
  * передачу файла
  */
-static void receive_file_gui_act(char **opts_names,
+static void on_receive_file_gui_act(char **opts_names,
         char **opts_values, unsigned int opts_count, const struct sockets_queue *q) {
     const char *filename = NULL;
     const unsigned char *hsum = NULL;
@@ -520,7 +520,7 @@ static void receive_file_gui_act(char **opts_names,
  * Ф-ия вызывается из модуля network при получении от гуя запроса
  * на прекращение передачи файла
  */
-static void stop_file_receiving_gui_act(char **opts_names,
+static void on_stop_file_receiving_gui_act(char **opts_names,
         char **opts_values, unsigned int opts_count, const struct sockets_queue *q) {
     int trmid = -1;
     char buf[255];
@@ -549,7 +549,7 @@ static void stop_file_receiving_gui_act(char **opts_names,
  * Ф-ия вызывается из модуля network при получении от гуя запроса
  * на прекращение всех передач и завершение работы приложения.
  */
-static void terminate_gui_act(char **opts_names,
+static void on_terminate_gui_act(char **opts_names,
         char **opts_values, unsigned int opts_count, const struct sockets_queue *q) {
     char *r_opts_names[] = {"result"};
     char *r_opts_vals[] = {"0"};
@@ -604,7 +604,7 @@ int process_srv_message(int sock, const char *msg, size_t len) {
  */
 void setup_gui_acts(struct gui_actions *acts) {
     g_acts = acts;
-    acts->start_trm = &receive_file_gui_act;
-    acts->stop_trm = &stop_file_receiving_gui_act;
-    acts->terminate = &terminate_gui_act;
+    acts->start_trm = &on_receive_file_gui_act;
+    acts->stop_trm = &on_stop_file_receiving_gui_act;
+    acts->terminate = &on_terminate_gui_act;
 }

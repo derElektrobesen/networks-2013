@@ -203,6 +203,21 @@ int process_client_message(int sender_sock, const char *msg, size_t count) {
     return r;
 }
 
+static void on_terminate_gui_act(char **opts_names,
+        char **opts_vals, unsigned int count, const struct sockets_queue *q) {
+    char *r_opts_names[] = {"result"};
+    char *r_opts_vals[] = {"0"};
+    int i;
+
+    for (i = 0; i < q->count; i++)
+        close(q->sockets[i]);
+
+    g_acts->answer(r_opts_names, r_opts_vals, 1);
+
+    exit(0);    /* terminate */
+}
+
 void setup_gui_acts(struct gui_actions *acts) {
     g_acts = acts;
+    acts->terminate = &on_terminate_gui_act;
 }
