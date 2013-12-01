@@ -35,6 +35,7 @@
 #define TRME_ALLOC_FAILURE     -5   /**< Ошибка при выделении памяти            */
 #define TRME_FILE_ERROR        -6   /**< Ошибка при работе с файлом             */
 #define TRME_OUT_OF_MEMORY     -7   /**< Не хватает памяти для всего файла      */
+#define TRME_OPTS_FAILURE      -8   /**< Ошибка при передаче аргуметов          */
 
 /* Typedefs */
 
@@ -119,8 +120,8 @@ struct transmission {
  */
 struct transmissions {
     struct transmission trm[MAX_TRANSMISSIONS];
-    unsigned char openned_trms[MAX_TRANSMISSIONS];  /**< 1 && 0 */
-    unsigned int count;                             /**< Число закрытых передач                     */
+    unsigned char openned_trms[MAX_TRANSMISSIONS];  /**< 1 && 0                                         */
+    unsigned int count;                             /**< Число закрытых передач                         */
 };
 
 

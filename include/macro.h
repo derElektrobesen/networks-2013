@@ -85,4 +85,6 @@
 
 #define st_arr_len(arr_ptr) (sizeof(arr_ptr) / sizeof(*(arr_ptr)))
 
+#define TO_STR(name)        #name               /* macro name to str */
+
 #endif

@@ -451,12 +451,119 @@ int receive_file(const char *filename, const unsigned char *hsum,
     r = tr_no;
     if (tr_no >= 0) {
         r = start_transmission(tr_no, q);
-        if (r) {
+        if (r)
             remove_transmission(tr_no);
-            r = -1;
-        }
     }
     return r;
+}
+
+static void error_to_str(int error, char *buf, int maxlen) {
+    char *str;
+
+    switch (error) {
+        case TRME_TOO_MANY_TRM:     str = TO_STR(TRME_TOO_MANY_TRM);
+        case TRME_DECODE_ERR:       str = TO_STR(TRME_DECODE_ERR);
+        case TRME_SOCKET_FAILURE:   str = TO_STR(TRME_SOCKET_FAILURE);
+        case TRME_ALLOC_FAILURE:    str = TO_STR(TRME_ALLOC_FAILURE);
+        case TRME_FILE_ERROR:       str = TO_STR(TRME_FILE_ERROR);
+        case TRME_OUT_OF_MEMORY:    str = TO_STR(TRME_OUT_OF_MEMORY);
+        case TRME_NO_ACTIVE_SRVS:   str = TO_STR(TRME_NO_ACTIVE_SRVS);
+        case TRME_OPTS_FAILURE:     str = TO_STR(TRME_OPTS_FAILURE);
+        default:                    str = "Unknown error";
+    }
+    strncpy(buf, str, maxlen);
+}
+
+/**
+ * Ф-ия вызывается из модуля network при получении от гуя запроса на
+ * передачу файла
+ */
+static void receive_file_gui_act(char **opts_names,
+        char **opts_values, unsigned int opts_count, const struct sockets_queue *q) {
+    const char *filename = NULL;
+    const unsigned char *hsum = NULL;
+    unsigned long fsize = 0;
+    unsigned int i;
+    char buf[255];
+    char *r_opts_names[] = {"result", "error"};
+    char *r_opts_vals[] = {"-1", buf};
+    int count = 2;
+    int r;
+
+    for (i = 0; i < opts_count && !(filename && hsum && fsize); i++) {
+        if (!filename && strcmp("filename", opts_names[i]) == 0)
+            filename = opts_values[i];
+        else if (!hsum && strcmp("hsum", opts_names[i]) == 0)
+            hsum = (unsigned char *)opts_values[i];
+        else if (!fsize && strcmp("filesize", opts_names[i]) == 0)
+            fsize = strtoul(opts_values[i], NULL, 0);
+    }
+
+    if (filename && hsum && fsize) {
+        r = receive_file(filename, hsum, fsize, q);
+        if (r >= 0) {
+            snprintf(buf, sizeof(buf), "%d", r);
+            r_opts_vals[0] = "0";
+            r_opts_names[1] = "trmid";
+            log(CLIENT, "transmission %d had been started", r);
+        } else
+            error_to_str(r, buf, sizeof(buf));
+    } else {
+        err(CLIENT, "an error occurred while trying to start the file transmission: 'filename', "
+                "'hsum' and 'filesize' options are required");
+        error_to_str(TRME_OPTS_FAILURE, buf, sizeof(buf));
+    }
+    g_acts->answer(r_opts_names, r_opts_vals, count);
+}
+
+/**
+ * Ф-ия вызывается из модуля network при получении от гуя запроса
+ * на прекращение передачи файла
+ */
+static void stop_file_receiving_gui_act(char **opts_names,
+        char **opts_values, unsigned int opts_count, const struct sockets_queue *q) {
+    int trmid = -1;
+    char buf[255];
+    char *r_opts_names[] = {"result", "error"};
+    char *r_opts_vals[] = {"0", buf};
+    int count = 1;  /* result == 0 */
+    unsigned int i = 0;
+
+    for (i = 0; i < opts_count && trmid < 0; i++)
+        if (strcmp("trmid", opts_names[i]) == 0)
+            trmid = atoi(opts_values[i]);
+    if (trmid < 0) {
+        err(CLIENT, "an error occurred while trying to stop the file transmisson: 'trmid' "
+                "option is required");
+        error_to_str(TRME_OPTS_FAILURE, buf, sizeof(buf));
+        count = 2;  /* error */
+        r_opts_vals[0] = "-1";
+    } else {
+        remove_transmission(trmid);
+        log(CLIENT, "transmission %d removed successfully", trmid);
+    }
+    g_acts->answer(r_opts_names, r_opts_vals, count);
+}
+
+/**
+ * Ф-ия вызывается из модуля network при получении от гуя запроса
+ * на прекращение всех передач и завершение работы приложения.
+ */
+static void terminate_gui_act(char **opts_names,
+        char **opts_values, unsigned int opts_count, const struct sockets_queue *q) {
+    char *r_opts_names[] = {"result"};
+    char *r_opts_vals[] = {"0"};
+    int i;
+
+    for (i = 0; i < st_arr_len(t_descr.openned_trms) || i < q->count; i++) {
+        if (i < st_arr_len(t_descr.openned_trms) && t_descr.openned_trms[i] == 0)
+            remove_transmission(i);
+        if (i < q->count)
+            close(q->sockets[i]);
+    }
+    g_acts->answer(r_opts_names, r_opts_vals, 1);
+
+    exit(0);    /* terminate */
 }
 
 /*
@@ -494,8 +601,10 @@ int process_srv_message(int sock, const char *msg, size_t len) {
 /*
  * Ф-ия выставляет callback ф-ии для обработки и посылки сообщений
  * backend'a
- * TODO
  */
 void setup_gui_acts(struct gui_actions *acts) {
     g_acts = acts;
+    acts->start_trm = &receive_file_gui_act;
+    acts->stop_trm = &stop_file_receiving_gui_act;
+    acts->terminate = &terminate_gui_act;
 }

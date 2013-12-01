@@ -13,13 +13,14 @@ struct sockets_queue {
 };
 
 typedef void (*queue_dispatcher)();
-typedef void (*gui_recv_callback)(char *const *, char *const *, unsigned int);
-typedef void (*gui_send_callback)(const char *);
+typedef void (*gui_recv_callback)(char **, char **, unsigned int, const struct sockets_queue *);
+typedef void (*gui_send_callback)(char **, char **, unsigned int); /* TODO */
 
 struct gui_actions {
     gui_recv_callback start_trm;
     gui_recv_callback stop_trm;
     gui_recv_callback terminate;
+    gui_send_callback answer;           /* TODO */
     gui_send_callback package_sent;
     gui_send_callback package_recieved;
     gui_send_callback server_added;

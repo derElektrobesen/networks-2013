@@ -729,6 +729,10 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
     return 0;
 }
 
+static void send_gui_message(const char *msg) {
+    send_data(g_acts->sock, msg, strlen(msg), 0);
+}
+
 /**
  * Функция обрабатывает сообщения полученные от серверов
  * с которыми клиент установил соединение.
@@ -835,6 +839,11 @@ int start_client(socket_callback process_srv_msg_callback,
  * клиентом или сервером
  */
 void setup_gui_msgs(struct gui_actions *acts) {
-    /* TODO */
     g_acts = acts;
+    g_acts->package_sent = &send_gui_message;
+    g_acts->package_recieved = &send_gui_message;
+    g_acts->server_added = &send_gui_message;
+    g_acts->client_added = &send_gui_message;
+    g_acts->server_removed = &send_gui_message;
+    g_acts->client_removed = &send_gui_message;
 }
