@@ -253,7 +253,7 @@
     </property>
     <addaction name="actionCreate_transmission"/>
     <addaction name="separator"/>
-    <addaction name="actionStart_transmissionj"/>
+    <addaction name="actionStart_transmission"/>
     <addaction name="actionStop_transmission"/>
     <addaction name="separator"/>
     <addaction name="actionRemove_transmission"/>
@@ -279,7 +279,7 @@
     <bool>false</bool>
    </attribute>
    <addaction name="actionCreate_transmission"/>
-   <addaction name="actionStart_transmissionj"/>
+   <addaction name="actionStart_transmission"/>
    <addaction name="actionStop_transmission"/>
    <addaction name="actionRemove_transmission"/>
   </widget>
@@ -320,7 +320,7 @@
     <enum>QAction::QuitRole</enum>
    </property>
   </action>
-  <action name="actionStart_transmissionj">
+  <action name="actionStart_transmission">
    <property name="icon">
     <iconset>
      <normaloff>../images/Start-icon.png</normaloff>../images/Start-icon.png</iconset>

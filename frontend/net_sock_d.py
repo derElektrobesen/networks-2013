@@ -3,19 +3,20 @@
 import os
 import socket
 import json
+import struct
 
 class SocketException(Exception):
     def __init__(self):
-        super(eval(self.__class__.__name__), self).__init__()
+        super(SocketException, self).__init__()
 
 __ex_classes = "NoParamsExceptions MessageLenException BrokenPipeException \
-    NoConnectionAcceptedException".rstrip().split()
+    NoConnectionAcceptedException ReceiveMessageFailureException".rstrip().split()
 
 for c in __ex_classes:
     exec("""
 class {class_name}(SocketException):
     def __init__(self):
-        super(eval(self.__class__.__name__), self).__init__()
+        super({class_name}, self).__init__()
     """.format(class_name = c))
 
 class Socket:
@@ -59,16 +60,17 @@ class Socket:
         if not sock:
             sock = self.__client_sock
 
+        print(msg)
+
         if not sock:
             raise NoConnectionAcceptedException
 
         if len(msg) > MSG_MAX_LEN:
             raise MessageLenException(msg)
 
-        # TODO Профиксить отсправку сообщения
-        if sock.send("%*d" % (LEN_MSG_LEN, len(msg))) == 0:
+        if sock.send(struct.pack('L', len(msg))) == 0:
             raise BrokenPipeException()
-        if sock.send(msg) == 0:
+        if sock.send(msg.encode()) == 0:
             raise BrokenPipeException()
 
     def recv_msg(self, sock = None):
@@ -78,4 +80,13 @@ class Socket:
         if not sock:
             raise NoConnectionAcceptedException
 
-        return ''
+        msglen = sock.recv(LEN_MSG_LEN)
+        msglen = struct.unpack('L', msglen)[0]
+        if not msglen:
+            raise ReceiveMessageFailureException
+
+        msg = sock.recv(msglen)
+        if not msg:
+            raise RecieveMessageFailureException
+
+        return msg.decode()

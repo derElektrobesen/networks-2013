@@ -77,25 +77,14 @@ class MainWindow(QMainWindow, FormMain):
 
     def __handle_backend_message(self, msg, sender = None):
         data = json.loads(msg, encoding='utf-8')
-        if data['action'] == START_TRM:
-            pass
-        elif data['action'] == STOP_TRM:
-            pass
-        elif data['action'] == PACKAGE_SENT:
-            pass
-        elif data['action'] == PACKAGE_RECIEVED:
-            pass
-        elif data['action'] == SERVER_ADDED:
-            pass
-        elif data['action'] == CLIENT_ADDED:
-            pass
-        elif data['action'] == SERVER_REMOVED:
-            pass
-        elif data['action'] == CLIENT_REMOVED:
-            pass
-        else:
-            raise WrongActionException
-        # TODO: TERMINATE
+        print(data)
+        # TODO
+
+    @pyqtSlot()
+    def on_actionStart_transmission_triggered(self):
+        self.cli_thread.send_message({'action': START_TRM_ACT, 'filename': 'hell', \
+                'hsum': "944218a842edf845390ccd72e27617d7", \
+                'filesize': "59"})
 
 def main(argv):
     app = QApplication(argv, True)

@@ -885,8 +885,8 @@ size_t json_print (json_char **keys, json_char **values, int count, char *dest, 
 {
    int i, offset;
    *dest = '{';
-   for (i = 0, offset = 0; i < count && maxlen > offset; i++)
+   for (i = 0, offset = 1; i < count && maxlen > offset; i++)
       offset += snprintf(dest + offset, maxlen - offset, "\"%s\":\"%s\",", keys[i], values[i]);
-   dest[offset >= maxlen ? maxlen - 1 : offset] = '}';
-   return offset >= maxlen ? maxlen : offset + 1;
+   dest[offset >= maxlen ? maxlen - 2 : offset - 1] = '}';
+   return offset >= maxlen ? maxlen - 1: offset;
 }

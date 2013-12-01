@@ -47,5 +47,5 @@ class Thread(QThread):
     def run(self):
         try:
             self.do_work()
-        except SocketError as e:
+        except SocketException as e:
             self.error_came.emit(type(e).__name__, e.args[0])

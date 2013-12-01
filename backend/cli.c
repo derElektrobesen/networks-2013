@@ -465,14 +465,14 @@ static void err_to_str(int error, char *buf, int maxlen) {
     char *str;
 
     switch (error) {
-        case TRME_TOO_MANY_TRM:     str = TO_STR(TRME_TOO_MANY_TRM);
-        case TRME_DECODE_ERR:       str = TO_STR(TRME_DECODE_ERR);
-        case TRME_SOCKET_FAILURE:   str = TO_STR(TRME_SOCKET_FAILURE);
-        case TRME_ALLOC_FAILURE:    str = TO_STR(TRME_ALLOC_FAILURE);
-        case TRME_FILE_ERROR:       str = TO_STR(TRME_FILE_ERROR);
-        case TRME_OUT_OF_MEMORY:    str = TO_STR(TRME_OUT_OF_MEMORY);
-        case TRME_NO_ACTIVE_SRVS:   str = TO_STR(TRME_NO_ACTIVE_SRVS);
-        case TRME_OPTS_FAILURE:     str = TO_STR(TRME_OPTS_FAILURE);
+        case TRME_TOO_MANY_TRM:     str = TO_STR(TRME_TOO_MANY_TRM);    break;
+        case TRME_DECODE_ERR:       str = TO_STR(TRME_DECODE_ERR);      break;
+        case TRME_SOCKET_FAILURE:   str = TO_STR(TRME_SOCKET_FAILURE);  break;
+        case TRME_ALLOC_FAILURE:    str = TO_STR(TRME_ALLOC_FAILURE);   break;
+        case TRME_FILE_ERROR:       str = TO_STR(TRME_FILE_ERROR);      break;
+        case TRME_OUT_OF_MEMORY:    str = TO_STR(TRME_OUT_OF_MEMORY);   break;
+        case TRME_NO_ACTIVE_SRVS:   str = TO_STR(TRME_NO_ACTIVE_SRVS);  break;
+        case TRME_OPTS_FAILURE:     str = TO_STR(TRME_OPTS_FAILURE);    break;
         default:                    str = "Unknown error";
     }
     strncpy(buf, str, maxlen);
@@ -485,7 +485,7 @@ static void err_to_str(int error, char *buf, int maxlen) {
 static void on_receive_file_gui_act(char **opts_names,
         char **opts_values, unsigned int opts_count, const struct sockets_queue *q) {
     const char *filename = NULL;
-    const unsigned char *hsum = NULL;
+    unsigned char *hsum = NULL;
     unsigned long fsize = 0;
     unsigned int i;
     char buf[255], pieces_buf[255];
@@ -504,6 +504,13 @@ static void on_receive_file_gui_act(char **opts_names,
     }
 
     if (filename && hsum && fsize) {
+        r = (int)strlen((const char *)hsum);
+        buf[2] = 0;
+        for (i = 0; i < r / 2; i++) {
+            buf[0] = hsum[2 * i];
+            buf[1] = hsum[2 * i + 1];
+            hsum[2 * i] = (unsigned char)strtoul(buf, NULL, 16);
+        }
         r = receive_file(filename, hsum, fsize, q);
         if (r >= 0) {
             snprintf(buf, sizeof(buf), "%d", r);

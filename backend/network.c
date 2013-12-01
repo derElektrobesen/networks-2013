@@ -176,7 +176,9 @@ static void process_gui_message(int sock, const struct sockets_queue *q) {
     ssize_t data_len;
     unsigned int i;
 
-    data_len = receive_data(sock, data, st_arr_len(data));
+    do {
+        data_len = receive_data(sock, data, st_arr_len(data));
+    } while (!data_len);
 
     json = json_parse(data, data_len);
 
@@ -679,14 +681,17 @@ static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     char srv_ch_addr[INET_ADDRSTRLEN];
     int s, r = -1;
 
-    char *o_names[] = {"ip"};
-    char *o_vals[] = {srv_ch_addr};
-    unsigned int count = 1;
+    char buf[255];
+    char *o_names[] = {"ip", "id"};
+    char *o_vals[] = {srv_ch_addr, buf};
+    unsigned int count = 2;
 
     if (inet_ntop(AF_INET, &(srv_addr->sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
-        log(BROADCAST, "accepted server: %s", srv_ch_addr);
-        g_acts->server_added(o_names, o_vals, count);
         s = create_client(srv_ch_addr);
+
+        log(BROADCAST, "accepted server: %s", srv_ch_addr);
+        snprintf(buf, sizeof(buf), "%d", s);
+        g_acts->server_added(o_names, o_vals, count);
 
         q->addrs[q->count] = srv_addr->sin_addr.s_addr;
         q->sockets[q->count++] = s;
@@ -801,7 +806,7 @@ static void send_gui_message(char *act, char **opts_names, char **opts_vals, uns
         g_opts[count] = "action";
         g_vals[count] = act;
 
-        len = json_print(g_opts, g_vals, count, msg, sizeof(msg));
+        len = json_print(g_opts, g_vals, count + 1, msg, sizeof(msg));
         send_data(g_acts->sock, msg, len, 0);
     }
 }
