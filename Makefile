@@ -17,15 +17,18 @@ FORMS_DIR = $(F_DIR)/forms
 PATCHER = $(F_DIR)/patcher.pl
 
 # gui actions
-START_TRM = \"0\"
-STOP_TRM = \"1\"
-PACKAGE_SENT = \"2\"
-PACKAGE_RECIEVED = \"3\"
-SERVER_ADDED = \"4\"
-CLIENT_ADDED = \"5\"
-SERVER_REMOVED = \"6\"
-CLIENT_REMOVED = \"7\"
-TERMINATE = \"8\"
+ACTS = \
+	START_TRM_ACT=\"start_trm\"	\
+	STOP_TRM_ACT=\"stop_trm\" \
+	PACKAGE_SENT_ACT=\"package_sent\" \
+	PACKAGE_RECIEVED_ACT=\"package_received\" \
+	SERVER_ADDED_ACT=\"server_added\" \
+	CLIENT_ADDED_ACT=\"client_added\" \
+	SERVER_REMOVED_ACT=\"server_removed\" \
+	CLIENT_REMOVED_ACT=\"client_removed\" \
+	TERMINATE_ACT=\"terminate\" \
+	ANSWER_ACT=\"answer\" \
+	FILE_RECEIVED_ACT=\"file_received\"
 
 HOME = /tmp/course_prj
 INTERFACE_CLI_SOCKET_PATH = $(HOME)/i_cli.sock
@@ -50,15 +53,7 @@ DEFINES =   DEBUG \
 			MAX_PIECES_COUNT=10000u \
 			MAX_PACK_NUM=1000000u \
 			MAX_PACK_NUM_LEN=7 \
-			START_TRM_ACT=$(START_TRM) \
-			STOP_TRM_ACT=$(STOP_TRM) \
-			PACKAGE_SENT_ACT=$(PACKAGE_SENT) \
-			PACKAGE_RECIEVED_ACT=$(PACKAGE_RECIEVED) \
-			SERVER_ADDED_ACT=$(SERVER_ADDED) \
-			CLIENT_ADDED_ACT=$(CLIENT_ADDED) \
-			SERVER_REMOVED_ACT=$(SERVER_REMOVED) \
-			CLIENT_REMOVED_ACT=$(CLIENT_REMOVED) \
-			TERMINATE_ACT=$(TERMINATE) \
+			$(ACTS) \
 			JSON_MAX_OPTS=10 \
 			MAX_CONNECTIONS=128 \
 			MAX_TRANSMISSIONS=8u \
@@ -111,15 +106,7 @@ MAIN_RULES_ = \
 			SRV_SOCK_PATH:\"$(INTERFACE_SRV_SOCKET_PATH)\" \
 			MSG_MAX_LEN:$(BUF_MAX_LEN) \
 			LEN_MSG_LEN:$(MSG_LEN_T_SIZE) \
-			START_TRM:$(START_TRM) \
-			STOP_TRM:$(STOP_TRM) \
-			PACKAGE_SENT:$(PACKAGE_SENT) \
-			PACKAGE_RECIEVED:$(PACKAGE_RECIEVED) \
-			SERVER_ADDED:$(SERVER_ADDED) \
-			CLIENT_ADDED:$(CLIENT_ADDED) \
-			SERVER_REMOVED:$(SERVER_REMOVED) \
-			CLIENT_REMOVED:$(CLIENT_REMOVED) \
-			TERMINATE:$(TERMINATE) \
+			$(subst =,:,$(ACTS)) \
 			HOME_PATH:$(FRONTEND_HOME)
 
 CREATE_RULE = $(shell echo '$1' | perl -e 'my $$r = ""; while (<>) { s/\s+/*/g; $$r .= $$_; } print "$$r"')

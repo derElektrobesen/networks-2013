@@ -153,11 +153,11 @@ inline static json_char *get_string_value(json_value *cur) {
  */
 static void gui_actions_dispatcher(json_char *act, json_char **onames,
         json_char **opts, unsigned int ocount, const struct sockets_queue *q) {
-    if (g_acts->start_trm && strcmp(act, "start") == 0)
+    if (g_acts->start_trm && strcmp(act, START_TRM_ACT) == 0)
         g_acts->start_trm(onames, opts, ocount, q);
-    else if (g_acts->stop_trm && strcmp(act, "stop") == 0)
+    else if (g_acts->stop_trm && strcmp(act, STOP_TRM_ACT) == 0)
         g_acts->stop_trm(onames, opts, ocount, q);
-    else if (g_acts->terminate && strcmp(act, "terminate") == 0)
+    else if (g_acts->terminate && strcmp(act, TERMINATE_ACT) == 0)
         g_acts->terminate(onames, opts, ocount, q);
     else
         err(OTHER, "unknown action given: %s", act);
@@ -914,19 +914,19 @@ int start_client(socket_callback process_srv_msg_callback,
     return receive_servers_messages(process_srv_msg_callback, dispatcher, q);
 }
 
-#define define_act(name) \
+#define define_act(name, macro) \
 inline static void g_##name(char **o, char **v, unsigned int c) { \
-    return send_gui_message(#name, o, v, c); \
+    return send_gui_message((macro), o, v, c); \
 }
 
-define_act(package_sent);
-define_act(package_received);
-define_act(server_added);
-define_act(client_added);
-define_act(server_removed);
-define_act(client_removed);
-define_act(answer);
-define_act(file_received);
+define_act(package_sent, PACKAGE_SENT_ACT);
+define_act(package_received, PACKAGE_RECIEVED_ACT);
+define_act(server_added, SERVER_ADDED_ACT);
+define_act(client_added, CLIENT_ADDED_ACT);
+define_act(server_removed, SERVER_REMOVED_ACT);
+define_act(client_removed, CLIENT_REMOVED_ACT);
+define_act(answer, ANSWER_ACT);
+define_act(file_received, FILE_RECEIVED_ACT);
 
 #undef define_act
 
