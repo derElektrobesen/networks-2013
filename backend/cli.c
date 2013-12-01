@@ -221,16 +221,14 @@ static void remove_transmission(int tr_id) {
 /**
  * Ф-ия добавляет соединение с сервером для передачи файла
  */
-static struct active_connection *add_connection(int sock,
-        int transmission_id, piece_id_t piece_id) {
+static struct active_connection *add_connection(int sock, int transmission_id) {
     struct active_connection *q;
 
     q = m_alloc_s(struct active_connection);
     q->srv_sock = sock;
     q->timeout = FILE_TIMEOUT;
     q->transmission_id = transmission_id;
-    q->status = SRV_BUSY;
-    q->piece_id = piece_id;
+    q->status = SRV_READY;
     q->next = NULL;
     q->prev = NULL;
     if (!q_descr.q_head)
@@ -280,9 +278,9 @@ static int start_transmission(int transmission_id,
         }
 
         for (i = 0, req_count = 0; !r && i < q->count && i < t->pieces.max_piece_num; i++) {
-            con = add_connection(q->sockets[i], transmission_id, i);
-            con->data = data;
+            con = add_connection(q->sockets[i], transmission_id);
             if (con) {
+                con->data = data;
                 f.piece_id = i;
                 /* TODO: Обработать исключительные ситуации */
                 if (require_piece(&f, con) == 0) {
@@ -573,11 +571,40 @@ static void on_terminate_gui_act(char **opts_names,
     exit(0);    /* terminate */
 }
 
+void refresh_active_connection(int sock) {
+    struct active_connection *cur, *tmp;
+    struct transmission *t;
+    struct cli_fields f;
+    int i;
+
+    cur = q_descr.q_head;
+    for (i = 0; i < t_descr.count; i++) {
+        if (t_descr.openned_trms[i] == 1) {
+            while (cur->transmission_id != i)
+                cur = cur->next;
+            t = t_descr.trm + i;
+            tmp = add_connection(sock, i);
+            if (tmp) {
+                tmp->data = cur->data;
+                f.piece_id = t->pieces.cur_piece;
+                if (require_piece(&f, tmp))
+                    t->pieces.cur_piece++;
+            } else
+                err(CLIENT, "add connection failure");
+        }
+    }
+}
+
 /*
  * Обрабатывает список активных передач.
  */
-void main_dispatcher() {
+void main_dispatcher(const int *socks, int count) {
     struct active_connection *cur;
+    int i;
+    
+    for (i = 0; i < count; i++)
+        refresh_active_connection(*(socks + i));
+
     cur = q_descr.q_head;
     while (cur) {
         if (process_timeouts(cur))

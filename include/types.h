@@ -12,7 +12,7 @@ struct sockets_queue {
     int count;                          /*< Число акивных подключений   */
 };
 
-typedef void (*queue_dispatcher)();
+typedef void (*queue_dispatcher)(const int *, int);
 typedef void (*gui_recv_callback)(char **, char **, unsigned int, const struct sockets_queue *);
 typedef void (*gui_send_callback)(char **, char **, unsigned int);
 

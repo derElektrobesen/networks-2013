@@ -632,10 +632,11 @@ static int create_server(socket_callback callback) {
 
 /**
  * Функция устанавливает соединение.
+ * Возвращает номер сокета в случае успешного соединения и меньше нуля иначе
  */
 static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     char srv_ch_addr[INET_ADDRSTRLEN];
-    int s, r = 0;
+    int s, r = -1;
 
     if (inet_ntop(AF_INET, &(srv_addr->sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
         log(BROADCAST, "accepted server: %s", srv_ch_addr);
@@ -643,9 +644,10 @@ static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
 
         q->addrs[q->count] = srv_addr->sin_addr.s_addr;
         q->sockets[q->count++] = s;
+        r = s;
     } else {
         err(BROADCAST, "inet_ntop failure");
-        r = 1;
+        r = -1;
     }
     return r;
 }
@@ -653,10 +655,10 @@ static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
 /**
  * Ф-ия обрабатывает входные broadcast сообщения.
  * В случае обнаружения нового сервера, добавляет его в список.
- * Возвращает 0 в случае успеха,
- *            1 в случае loopback сервера
- *            2 в случае, если соединение уже установлено
- *            3 в случае других ошибок
+ * Возвращает >= 0 в случае успеха,
+ *            -1   в случае loopback сервера
+ *            -2   в случае, если соединение уже установлено
+ *            -3   в случае других ошибок
  */
 static int process_broadcast_servers(int sock, struct sockets_queue *q) {
     char buf[BUF_MAX_LEN];
@@ -687,7 +689,7 @@ static int process_broadcast_servers(int sock, struct sockets_queue *q) {
                     flag = 2;
             if (!flag) {
                 flag = accept_conn(q, &addr);
-                if (flag)
+                if (flag < 0)
                     flag = 3; /** Another errors */
             }
         }
@@ -764,6 +766,9 @@ static int receive_servers_messages(
         .tv_usec = 0,
 #endif
     };
+    int new_socks[MAX_CONNECTIONS];
+    int new_socks_count = 0;
+    int new_sock;
 
     gui_sock = init_gui_sock(INTERFACE_CLI_SOCKET_PATH);
 
@@ -792,8 +797,11 @@ static int receive_servers_messages(
         }
 
         if (select(max_sock_fd + 1, &set, NULL, NULL, dispatcher ? &timeout : NULL) > 0) {
-            if (FD_ISSET(broadcast_sock, &set))
-                process_broadcast_servers(broadcast_sock, q);
+            if (FD_ISSET(broadcast_sock, &set)) {
+                new_sock = process_broadcast_servers(broadcast_sock, q);
+                if (new_sock >= 0)
+                    new_socks[new_socks_count++] = new_sock;
+            }
             if (gui_sock >= 0 && FD_ISSET(gui_sock, &set))
                 process_gui_message(gui_sock);
             recv_srv_msg(&set, q, process_srv_msg_callback);
@@ -807,7 +815,8 @@ static int receive_servers_messages(
 #ifdef ALARM_U_DELAY
             timeout.tv_usec = ALARM_U_DELAY;
 #endif
-            dispatcher();
+            dispatcher(new_socks, new_socks_count);
+            new_socks_count = 0;
         }
     }
     return 0;
