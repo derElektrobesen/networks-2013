@@ -104,7 +104,6 @@ static void request_piece(struct active_connection *con) {
             f.piece_id = piece;
             f.file_id = con->file_id;
             f.error = 0;
-            /* TODO */
             strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
             memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
@@ -366,21 +365,16 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
         piece_id_t max_piece_num, struct transmission *t) {
     struct file_data_t *d = &(data->data);
     struct file_udata_t *ud;
-    FILE *ffff;
     char a[20], b[20];
     int i, r = 0, st = 0;
 
     if (d->pieces_copied == d->f_piece - d->s_piece) {
         /* Данные можно сбрасывать на жесткий диск */
         log(CLIENT, "writing %lu bytes", d->full_size);
-        ffff = fopen("/tmp/course_prj/results", "a");
         memcpy(a, d->data, 20);
         memcpy(b, d->data + d->full_size - 20, 20);
         a[19] = 0;
         b[19] = 0;
-        fprintf(ffff, "Writing %lu bytes: start piece id: %d, end piece id: %d, start 10 bytes: %s, "
-                "end 10 bytes: %s\n", d->full_size, d->s_piece, d->f_piece, a, b);
-        fclose(ffff);
         if (fwrite(d->data, sizeof(d->data[0]), d->full_size, file) != d->full_size)
             err_n(CLIENT, "fwrite failure");
 
@@ -422,6 +416,11 @@ static void process_received_piece(const struct srv_fields *f,
     struct pieces_queue *p;
     char err_msg[255];
 
+    char buf[255], piece_buf[255];
+    char *g_opts[] = {"trmid", "piece_id"};
+    char *g_vals[] = {buf, piece_buf};
+    int count = 2;
+
     con->status = SRV_READY;
     if (f->cli_field.file_id < 0) {
         decode_proto_error(f->cli_field.error, err_msg, st_arr_len(err_msg));
@@ -430,10 +429,16 @@ static void process_received_piece(const struct srv_fields *f,
         p->failed_pieces[++(p->max_failed_piece_num)] = f->cli_field.piece_id;
         remove_connection(con);
     } else {
+        snprintf(buf, sizeof(buf), "%d", con->transmission_id);
+        snprintf(piece_buf, sizeof(piece_buf), "%d", con->piece_id);
+        g_acts->package_recieved(g_opts, g_vals, count);
+
         con->file_id = f->cli_field.file_id;
         push_file_data(con->data, f, t);
-        if (flush_file_data(con->data, t->file, t->pieces.max_piece_num, t))
+        if (flush_file_data(con->data, t->file, t->pieces.max_piece_num, t)) {
+            g_acts->file_received(g_opts, g_vals, 1);   /* trmid only */
             remove_transmission(con->transmission_id);
+        }
     }
 }
 
@@ -484,9 +489,9 @@ static void on_receive_file_gui_act(char **opts_names,
     const unsigned char *hsum = NULL;
     unsigned long fsize = 0;
     unsigned int i;
-    char buf[255];
-    char *r_opts_names[] = {"result", "error"};
-    char *r_opts_vals[] = {"-1", buf};
+    char buf[255], pieces_buf[255];
+    char *r_opts_names[] = {"result", "error", "pieces_count"};
+    char *r_opts_vals[] = {"-1", buf, pieces_buf};
     int count = 2;
     int r;
 
@@ -503,8 +508,10 @@ static void on_receive_file_gui_act(char **opts_names,
         r = receive_file(filename, hsum, fsize, q);
         if (r >= 0) {
             snprintf(buf, sizeof(buf), "%d", r);
+            snprintf(pieces_buf, sizeof(pieces_buf), "%d", t_descr.trm[r].pieces.max_piece_num);
             r_opts_vals[0] = "0";
             r_opts_names[1] = "trmid";
+            count = 3;
             log(CLIENT, "transmission %d had been started", r);
         } else
             err_to_str(r, buf, sizeof(buf));
@@ -584,7 +591,7 @@ void main_dispatcher() {
  * Обрабатывает сообщение полученное от сервера.
  */
 int process_srv_message(int sock, const char *msg, size_t len) {
-    static struct srv_fields fields;    /**< Чтобы лишний раз не выделять память в стеке */
+    static struct srv_fields fields;    /* Чтобы лишний раз не выделять память в стеке */
     struct active_connection *con;
     int r = 0;
 

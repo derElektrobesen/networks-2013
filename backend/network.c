@@ -851,4 +851,5 @@ void setup_gui_msgs(struct gui_actions *acts) {
     g_acts->server_removed = &send_gui_message;
     g_acts->client_removed = &send_gui_message;
     g_acts->answer = &send_gui_message;
+    g_acts->file_received = &send_gui_message;
 }

@@ -27,6 +27,7 @@ struct gui_actions {
     gui_send_callback client_added;
     gui_send_callback server_removed;
     gui_send_callback client_removed;
+    gui_send_callback file_received;
     int sock;
 };
 
