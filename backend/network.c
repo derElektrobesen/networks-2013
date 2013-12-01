@@ -151,14 +151,22 @@ inline static json_char *get_string_value(json_value *cur) {
  * Ф-ия обрабатывает переданные ей opts в зависимости от события act и вополняет
  * соответствующие действия
  */
-static void gui_actions_dispatcher(json_char *act, json_char **onames, json_char **opts, unsigned int ocount) {
-    /* TODO */
+static void gui_actions_dispatcher(json_char *act, json_char **onames,
+        json_char **opts, unsigned int ocount, const struct sockets_queue *q) {
+    if (g_acts->start_trm && strcmp(act, "start") == 0)
+        g_acts->start_trm(onames, opts, ocount, q);
+    else if (g_acts->stop_trm && strcmp(act, "stop") == 0)
+        g_acts->stop_trm(onames, opts, ocount, q);
+    else if (g_acts->terminate && strcmp(act, "terminate") == 0)
+        g_acts->terminate(onames, opts, ocount, q);
+    else
+        err(OTHER, "unknown action given: %s", act);
 }
 
 /**
  * Ф-ия обрабатывает пришедший json и выполняет соответствующие ему действия
  */
-static void process_gui_message(int sock) {
+static void process_gui_message(int sock, const struct sockets_queue *q) {
     json_value *json;
     json_char *cur;
     json_char data[BUF_MAX_LEN];
@@ -187,7 +195,7 @@ static void process_gui_message(int sock) {
     if (!cur)
         err(OTHER, "Invalid JSON came: 'type' field is required");
     else
-        gui_actions_dispatcher(cur, names, values, count);
+        gui_actions_dispatcher(cur, names, values, count, q);
 
     json_value_free(json);
 }
@@ -421,7 +429,7 @@ static int receive_messages(int sock, socket_callback callback) {
             }
         }
         if (gui_sock >= 0 && FD_ISSET(gui_sock, &set))
-            process_gui_message(gui_sock);
+            process_gui_message(gui_sock, NULL);
 
         max_sock_fd = process_sockets(&set, callback, sockets, &sockets_count);
         if (max_sock_fd < sock)
@@ -862,7 +870,7 @@ static int receive_servers_messages(
                     new_socks[new_socks_count++] = new_sock;
             }
             if (gui_sock >= 0 && FD_ISSET(gui_sock, &set))
-                process_gui_message(gui_sock);
+                process_gui_message(gui_sock, q);
             recv_srv_msg(&set, q, process_srv_msg_callback);
         }
 
