@@ -77,7 +77,7 @@ struct active_connection {
     int transmission_id;
     int status;
     piece_id_t piece_id;
-    file_id_t file_id;                 /* TODO */
+    file_id_t file_id;
     pack_id_t pack_id;
     struct file_full_data_t *data;
     struct active_connection *next;

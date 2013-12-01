@@ -69,7 +69,9 @@ static int cmp_file_hash(const struct cli_fields *f, int id) {
  */
 static int search_file(const char *fname, char *full_name,
         int full_name_max_len) {
-    /* TODO */
+    /* TODO: сделать запрос к гую (или напрямую по торрент-файлам) для поиска нужного
+     * файла
+     */
     int r = 0;
     if (full_name)
         snprintf(full_name, full_name_max_len, "%s/%s", HOME_DIR_PATH, fname);
