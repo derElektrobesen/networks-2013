@@ -205,7 +205,7 @@ static int init_gui_sock(const char *sock_path) {
     addr.sun_family = AF_UNIX;
     strcpy(addr.sun_path, sock_path);
 
-    if (connect(sock, (struct sockaddr *)(&addr), sizeof(addr.sun_path) + sizeof(addr.sun_family) == -1)) {
+    if (connect(sock, (struct sockaddr *)(&addr), sizeof(addr))) {
         err_n(OTHER, "connect failure");
         sock = -1;
     }
@@ -315,6 +315,10 @@ static int process_sockets(fd_set *set, socket_callback callback,
     int offset;
     int max_sock = -1;
 
+    char *g_opts[] = {"id"};
+    char *g_vals[] = {buf};
+    int count = 1;
+
     for (i = 0, offset = 0; i < *max_index; i++) {
         if (offset)
             *(opened_sockets + i) = *(opened_sockets + i + offset);
@@ -324,6 +328,8 @@ static int process_sockets(fd_set *set, socket_callback callback,
             bytes_read = receive_data(*(opened_sockets + i), buf, sizeof(buf));
             if (bytes_read < 0) {
                 log(CLIENT, "connection closed: %d", *(opened_sockets + i));
+                snprintf(buf, sizeof(buf), "%d", *(opened_sockets + i));
+                g_acts->client_removed(g_opts, g_vals, count);
                 close(*(opened_sockets + i));
                 (*max_index)--;
                 offset++;
@@ -339,6 +345,24 @@ static int process_sockets(fd_set *set, socket_callback callback,
     return max_sock;
 }
 
+static void get_sock_ip(int sock, char *ip, int max_len) {
+    struct sockaddr_storage addr;
+    struct sockaddr_in *s;
+    struct sockaddr_in6 *s6;
+    socklen_t len;
+
+    len = sizeof(addr);
+    getpeername(sock, (struct sockaddr *)&addr, &len);
+
+    if (addr.ss_family == AF_INET) {    /* IPv4 */
+        s = (struct sockaddr_in *)&addr;
+        inet_ntop(AF_INET, &s->sin_addr, ip, max_len);
+    } else {                            /* IPv6 */
+        s6 = (struct sockaddr_in6 *)&addr;
+        inet_ntop(AF_INET6, &s6->sin6_addr, ip, max_len);
+    }
+}
+
 /**
  * Функция ожидает новые соединения от клиентов.
  */
@@ -351,6 +375,12 @@ static int receive_messages(int sock, socket_callback callback) {
     int max_sock_fd;
     int i;
     char *err_str = "connection refused!\n";
+    char buf[255];
+    char ip_addr[INET6_ADDRSTRLEN];
+
+    char *g_opts[] = {"ip", "id"};
+    char *g_vals[2] = {ip_addr, buf};
+    int count = 2;
 
     make_sock_nonblock(sock);
 
@@ -375,7 +405,10 @@ static int receive_messages(int sock, socket_callback callback) {
                 err_n(SERVER, "accept failure!");
                 continue;
             }
-            log(SERVER, "accepted connection: %d", cli_sock);
+            get_sock_ip(cli_sock, ip_addr, sizeof(ip_addr));
+            snprintf(buf, sizeof(buf), "%d", cli_sock);
+            g_acts->client_added(g_opts, g_vals, count);
+            log(SERVER, "accepted connection: %d (%s)", cli_sock, ip_addr);
             make_sock_nonblock(cli_sock);
             if (sockets_count > MAX_CONNECTIONS - 1) {
                 log(SERVER, "connection refused: too many connections");
@@ -638,8 +671,13 @@ static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
     char srv_ch_addr[INET_ADDRSTRLEN];
     int s, r = -1;
 
+    char *o_names[] = {"ip"};
+    char *o_vals[] = {srv_ch_addr};
+    unsigned int count = 1;
+
     if (inet_ntop(AF_INET, &(srv_addr->sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
         log(BROADCAST, "accepted server: %s", srv_ch_addr);
+        g_acts->server_added(o_names, o_vals, count);
         s = create_client(srv_ch_addr);
 
         q->addrs[q->count] = srv_addr->sin_addr.s_addr;
@@ -706,6 +744,11 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
     ssize_t bytes_read;
     char msg[BUF_MAX_LEN];
     int i, offset;
+    char buf[255];
+
+    char *o_names[] = {"id"};
+    char *o_vals[] = {buf};
+    int count = 1;
 
     for (i = 0, offset = 0; i < q->count; i++) {
         if (offset) {
@@ -715,6 +758,8 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
         if (FD_ISSET(q->sockets[i], set)) {
             bytes_read = receive_data(q->sockets[i], msg, sizeof(msg));
             if (bytes_read < 0) {
+                snprintf(buf, sizeof(buf), "%d", q->sockets[i]);
+                g_acts->server_removed(o_names, o_vals, count);
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;
                 i--;
@@ -735,8 +780,10 @@ static void send_gui_message(char **opts_names, char **opts_vals, unsigned int c
     char msg[BUF_MAX_LEN];
     size_t len;
 
-    len = json_print(opts_names, opts_vals, count, msg, sizeof(msg));
-    send_data(g_acts->sock, msg, len, 0);
+    if (g_acts->sock >= 0) {
+        len = json_print(opts_names, opts_vals, count, msg, sizeof(msg));
+        send_data(g_acts->sock, msg, len, 0);
+    }
 }
 
 /**
