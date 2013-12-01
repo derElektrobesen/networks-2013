@@ -183,6 +183,7 @@ static void remove_connection(struct active_connection *c) {
     while (!f && q) {
         if (q != c && q->transmission_id == c->transmission_id)
             f = 1;
+        q = q->next;
     }
     if (!f) {
         t_descr.count--;
@@ -416,12 +417,15 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
 static void process_received_piece(const struct srv_fields *f,
         struct active_connection *con) {
     struct transmission *t = t_descr.trm + con->transmission_id;
+    struct pieces_queue *p;
     char err_msg[255];
 
     con->status = SRV_READY;
     if (f->cli_field.file_id < 0) {
         decode_proto_error(f->cli_field.error, err_msg, st_arr_len(err_msg));
         err(CLIENT, "transmission failure: %s", err_msg);
+        p = &(t->pieces);
+        p->failed_pieces[++(p->max_failed_piece_num)] = f->cli_field.piece_id;
         remove_connection(con);
     } else {
         con->file_id = f->cli_field.file_id;
