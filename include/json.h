@@ -267,8 +267,9 @@ void json_value_free_ex (json_settings * settings,
 
 /* Print given json array (as keys & values structure) into dest string.
  * Result is json-object only
+ * Returns result string length
  */
-void json_print (json_char **keys, json_char **values, int count, char *dest, int maxlen);
+size_t json_print (json_char **keys, json_char **values, int count, char *dest, int maxlen);
 
 #ifdef __cplusplus
    } /* extern "C" */

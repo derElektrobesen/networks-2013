@@ -729,8 +729,12 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
     return 0;
 }
 
-static void send_gui_message(const char *msg) {
-    send_data(g_acts->sock, msg, strlen(msg), 0);
+static void send_gui_message(char **opts_names, char **opts_vals, unsigned int count) {
+    char msg[BUF_MAX_LEN];
+    size_t len;
+
+    len = json_print(opts_names, opts_vals, count, msg, sizeof(msg));
+    send_data(g_acts->sock, msg, len, 0);
 }
 
 /**
@@ -846,4 +850,5 @@ void setup_gui_msgs(struct gui_actions *acts) {
     g_acts->client_added = &send_gui_message;
     g_acts->server_removed = &send_gui_message;
     g_acts->client_removed = &send_gui_message;
+    g_acts->answer = &send_gui_message;
 }
