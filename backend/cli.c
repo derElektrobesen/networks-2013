@@ -457,7 +457,7 @@ int receive_file(const char *filename, const unsigned char *hsum,
     return r;
 }
 
-static void error_to_str(int error, char *buf, int maxlen) {
+static void err_to_str(int error, char *buf, int maxlen) {
     char *str;
 
     switch (error) {
@@ -507,11 +507,11 @@ static void on_receive_file_gui_act(char **opts_names,
             r_opts_names[1] = "trmid";
             log(CLIENT, "transmission %d had been started", r);
         } else
-            error_to_str(r, buf, sizeof(buf));
+            err_to_str(r, buf, sizeof(buf));
     } else {
         err(CLIENT, "an error occurred while trying to start the file transmission: 'filename', "
                 "'hsum' and 'filesize' options are required");
-        error_to_str(TRME_OPTS_FAILURE, buf, sizeof(buf));
+        err_to_str(TRME_OPTS_FAILURE, buf, sizeof(buf));
     }
     g_acts->answer(r_opts_names, r_opts_vals, count);
 }
@@ -535,7 +535,7 @@ static void on_stop_file_receiving_gui_act(char **opts_names,
     if (trmid < 0) {
         err(CLIENT, "an error occurred while trying to stop the file transmisson: 'trmid' "
                 "option is required");
-        error_to_str(TRME_OPTS_FAILURE, buf, sizeof(buf));
+        err_to_str(TRME_OPTS_FAILURE, buf, sizeof(buf));
         count = 2;  /* error */
         r_opts_vals[0] = "-1";
     } else {
