@@ -37,6 +37,8 @@ MSG_LEN_T_SIZE = 8
 BUF_MAX_LEN=8000
 FRONTEND_HOME = $(shell pwd)/$(F_DIR)
 
+PROTO_STRUCT_SIZE = 296
+
 DEFINES =   DEBUG \
 			PORT=7777 \
 			SHORT_TIMEOUT=2 \
@@ -50,7 +52,7 @@ DEFINES =   DEBUG \
 			FILE_NAME_MAX_LEN=255 \
 			FULL_FILE_NAME_MAX_LEN=1024 \
 			TMP_FILE_MAX_LEN=255 \
-			MAX_PIECES_COUNT=10000u \
+			MAX_PIECES_COUNT=100000u \
 			MAX_PACK_NUM=1000000u \
 			MAX_PACK_NUM_LEN=7 \
 			$(ACTS) \
@@ -66,6 +68,7 @@ DEFINES =   DEBUG \
 			INTERFACE_SRV_SOCKET_PATH=\"$(INTERFACE_SRV_SOCKET_PATH)\" \
 			FILE_PIECE_SIZE=\(10*BUF_MAX_LEN\) \
 			MSG_LEN_T_SIZE=$(MSG_LEN_T_SIZE) \
+			PROTO_STRUCT_SIZE=$(PROTO_STRUCT_SIZE) \
 			DONT_DO_SRAND \
 			USE_LOOPBACK
 
@@ -88,7 +91,7 @@ CLI_OBJS = $(CLI_SRCS:%.c=$(O_DIR)/%.o)
 
 FORMS = main_form.ui about_form.ui
 F_MAIN_FILE = $(F_DIR)/main.py
-PY_FILES = main statuswidget tablewidget net_sock thread
+PY_FILES = main statuswidget tablewidget net_sock thread mainwindow
 UIGEN = pyuic4
 UIGEN_EXISTS = $(shell $(UIGEN) --version 2>/dev/null)
 
@@ -107,7 +110,9 @@ MAIN_RULES_ = \
 			MSG_MAX_LEN:$(BUF_MAX_LEN) \
 			LEN_MSG_LEN:$(MSG_LEN_T_SIZE) \
 			$(subst =,:,$(ACTS)) \
-			HOME_PATH:$(FRONTEND_HOME)
+			HOME_PATH:$(FRONTEND_HOME) \
+			TORRENTS_PATH:$(HOME)/torrents \
+			PIECE_LEN:$(PROTO_STRUCT_SIZE)
 
 CREATE_RULE = $(shell echo '$1' | perl -e 'my $$r = ""; while (<>) { s/\s+/*/g; $$r .= $$_; } print "$$r"')
 UI_RULES = $(call CREATE_RULE, $(UI_RULES_))

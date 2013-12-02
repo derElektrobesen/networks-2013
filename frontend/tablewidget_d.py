@@ -9,16 +9,26 @@ class TableWidget(QTableView):
         self.__setup_cols(cols)
 
     def __setup_cols(self, columns):
-        self.model = QStandardItemModel(10, len(columns), self)
+        self.model = QStandardItemModel(0, len(columns), self)
         for index, column in enumerate(columns):
             self.model.setHorizontalHeaderItem(index, QStandardItem(column))
         self.setModel(self.model)
         self.horizontalHeader().setResizeMode(QHeaderView.Stretch)
 
+    def add_row(self, row):
+        rrow = []
+        for cell in row:
+            rrow.append(QStandardItem(str(cell)))
+        self.model.appendRow(rrow)
+
 class MainTable(TableWidget):
     def __init__(self, parent = None):
         cols = ['Передача', 'Скорость (кб/с)', 'Пакетов всего', 'Передано пакетов', 'Передано %']
         super(MainTable, self).__init__(parent, cols)
+
+    def add_row(self, name = '', packs = 0, sent = -1, speed = 0):
+        sent = packs if sent < 0 else sent
+        super(MainTable, self).add_row([name, speed, packs, sent, packs / sent * 100])
 
 class ClientTable(TableWidget):
     def __init__(self, parent = None):
