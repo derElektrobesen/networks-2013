@@ -64,22 +64,59 @@ static int cmp_file_hash(const struct cli_fields *f, int id) {
 }
 
 /**
- * Ф-ия ищет среди раздач подходящую для fname
- * В случае успеха возвращает 1, иначе 0
+ * Ф-ия читает торрент-файл и копирует полный путь к файлу в переданный аргумент.
+ * Торрент файл должен существовать на диске
  */
-static int search_file(const char *fname, char *full_name,
-        int full_name_max_len) {
-    /* TODO: сделать запрос к гую (или напрямую по торрент-файлам) для поиска нужного
-     * файла
-     */
+static void get_full_file_path(const char *torrent_path, char *full_name, int maxlen) {
+    char buf[1024];
+    FILE *f;
+    char found = 0;
+    char *ptr = NULL;
+
+    *full_name = 0;
+    f = fopen(torrent_path, "r");
+
+    if (f) {
+        while (!*full_name && fgets(buf, sizeof(buf), f)) {
+            if (!found && strstr(buf, FILE_PATH_FLAG))
+                found = 1;
+            else if (found == 1)
+                found++;    /* Пропустить управляющую строку */
+            else {
+                /* Путь идет от корня. Копируем все что начинается со '/' */
+                ptr = buf;
+                while (*ptr != '/')
+                    ptr++;
+                strncpy(full_name, ptr, maxlen);
+            }
+        }
+        fclose(f);
+    }
+}
+
+/**
+ * Ф-ия ищет среди раздач подходящую для fname
+ * В случае успеха возвращает 0, иначе число, которое можно интерпретировать
+ * с помощью PE_* флагов
+ */
+static int search_file(const char *fname, const unsigned char *hsumm,
+        char *full_name, int full_name_max_len) {
     int r = 0;
-    if (full_name)
-        snprintf(full_name, full_name_max_len, "%s/%s", HOME_DIR_PATH, fname);
-    log(SERVER, "full file name: %s", full_name);
-    if (access(full_name, F_OK) != 0)
+    char sum[MD5_DIGEST_LENGTH * 2];
+    char torrent_file_path[1024];
+
+    convert_hex_str(sum, sizeof(sum), hsumm, MD5_DIGEST_LENGTH);
+    snprintf(torrent_file_path, sizeof(torrent_file_path), TORRENTS_PATH "/%s", sum);
+
+    if (access(torrent_file_path, F_OK) != 0)
         r = set_bit(r, PE_FILE_NOT_EXISTS);
-    else if (access(full_name, R_OK) != 0)
-        r = set_bit(r, PE_READ_ACCESS_DENIED);
+    else {
+        get_full_file_path(torrent_file_path, full_name, full_name_max_len);
+        if (!*full_name || access(full_name, F_OK) != 0)
+            r = set_bit(r, PE_FILE_NOT_EXISTS);
+        else if (access(full_name, R_OK) != 0)
+            r = set_bit(r, PE_READ_ACCESS_DENIED);
+    }
     return r;
 }
 
@@ -102,7 +139,7 @@ static file_id_t add_transmission(struct cli_fields *f) {
         flag = 1;
     }
     f->error = 0;
-    if (!(stat = search_file(f->file_name, filename, st_arr_len(filename)))) {
+    if (!(stat = search_file(f->file_name, f->hsumm, filename, st_arr_len(filename)))) {
         strncpy(f_descr.cache[r].name, f->file_name, st_arr_len(f->file_name));
         f_descr.cache[r].file = fopen(filename, "rb");
         if (!f_descr.cache[r].file) {

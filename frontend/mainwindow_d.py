@@ -38,6 +38,11 @@ class MainWindow(QMainWindow, FormMain):
         QMainWindow.__init__(self)
         self.setupUi(self)
 
+        if not os.path.exists("DOWNLOADS_PATH"):
+            os.makedirs("DOWNLOADS_PATH")
+        if not os.path.exists("TORRENTS_PATH"):
+            os.makedirs("TORRENTS_PATH")
+
         self.cli_thread = Thread(CLI_SOCK_PATH)
         self.srv_thread = Thread(SRV_SOCK_PATH)
 
@@ -92,7 +97,6 @@ class MainWindow(QMainWindow, FormMain):
     def __handle_backend_message(self, msg, sender = None):
         data = json.loads(msg, encoding='utf-8')
         print(data)
-        # TODO
 
     def load_torrent(self, fname = None, sent = -1, hsum = None, filename = None, filesize = None):
         if fname:
@@ -136,10 +140,9 @@ class MainWindow(QMainWindow, FormMain):
         struct = {'filesize': filesize, 'hsum': hsum, 'filename': filename}
         if fname:
             struct['default_path'] = fname
-        else:
-            fname = "TORRENTS_PATH/" + hsum
+        fname = "TORRENTS_PATH/" + hsum
         with open(fname, 'wb') as f:
-            pickle.dump(struct, f)
+            pickle.dump(struct, f, 0)
 
     @pyqtSlot()
     def on_actionStart_transmission_triggered(self):
@@ -152,8 +155,8 @@ class MainWindow(QMainWindow, FormMain):
     @pyqtSlot()
     def on_actionCreate_transmission_triggered(self):
         fname = QFileDialog.getOpenFileName(self, 'Open file to create a torrent', '~')
-        self.create_torrent_file(ntpath.basename(fname), os.path.getsize(fname),
-                hashlib.md5(open(fname).read().encode()).hexdigest(), fname)
+        hsum = hashlib.md5(open(fname, "rb").read()).hexdigest()
+        self.create_torrent_file(ntpath.basename(fname), os.path.getsize(fname), hsum, fname)
         self.load_torrent(fname = "TORRENTS_PATH/" + hsum)
 
     @pyqtSlot()

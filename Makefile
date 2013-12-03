@@ -31,11 +31,14 @@ ACTS = \
 	FILE_RECEIVED_ACT=\"file_received\"
 
 HOME = /tmp/course_prj
+TORRENTS_DIR = $(HOME)/torrents
+DOWNLOADS_DIR = $(HOME)/downloads
 INTERFACE_CLI_SOCKET_PATH = $(HOME)/i_cli.sock
 INTERFACE_SRV_SOCKET_PATH = $(HOME)/i_srv.sock
 MSG_LEN_T_SIZE = 8
 BUF_MAX_LEN=8000
 FRONTEND_HOME = $(shell pwd)/$(F_DIR)
+FILE_PATH_FLAG = default_size
 
 PROTO_STRUCT_SIZE = 296
 
@@ -61,7 +64,7 @@ DEFINES =   DEBUG \
 			MAX_TRANSMISSIONS=8u \
 			CACHED_PIECES_COUNT=3u \
 			CACHED_QUEUE_LEN=20u \
-			HOME_DIR_PATH=\"$(HOME)/downloads\" \
+			HOME_DIR_PATH=\"$(DOWNLOADS_DIR)\" \
 			APP_DIR_PATH=\"$(HOME)\" \
 			LOCK_FILE_PATH=\"/var/run/\" \
 			INTERFACE_CLI_SOCKET_PATH=\"$(INTERFACE_CLI_SOCKET_PATH)\" \
@@ -69,6 +72,8 @@ DEFINES =   DEBUG \
 			FILE_PIECE_SIZE=\(10*BUF_MAX_LEN\) \
 			MSG_LEN_T_SIZE=$(MSG_LEN_T_SIZE) \
 			PROTO_STRUCT_SIZE=$(PROTO_STRUCT_SIZE) \
+			TORRENTS_PATH=\"$(TORRENTS_DIR)\" \
+			FILE_PATH_FLAG=\"$(FILE_PATH_FLAG)\" \
 			DONT_DO_SRAND \
 			USE_LOOPBACK
 
@@ -111,7 +116,9 @@ MAIN_RULES_ = \
 			LEN_MSG_LEN:$(MSG_LEN_T_SIZE) \
 			$(subst =,:,$(ACTS)) \
 			HOME_PATH:$(FRONTEND_HOME) \
-			TORRENTS_PATH:$(HOME)/torrents \
+			TORRENTS_PATH:$(TORRENTS_DIR) \
+			FILE_PATH_FLAG:$(FILE_PATH_FLAG) \
+			DOWNLOADS_PATH:$(DOWNLOADS_DIR) \
 			PIECE_LEN:$(PROTO_STRUCT_SIZE)
 
 CREATE_RULE = $(shell echo '$1' | perl -e 'my $$r = ""; while (<>) { s/\s+/*/g; $$r .= $$_; } print "$$r"')
