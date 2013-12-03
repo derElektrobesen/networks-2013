@@ -57,10 +57,9 @@ class Socket:
 
     def send_msg(self, data, sock = None):
         msg = json.dumps(data)
+        print("sent:     " + msg)                       # TODO: REMOVE ME
         if not sock:
             sock = self.__client_sock
-
-        print(msg)
 
         if not sock:
             raise NoConnectionAcceptedException
@@ -86,6 +85,7 @@ class Socket:
             raise ReceiveMessageFailureException
 
         msg = sock.recv(msglen)
+        print("received: " + msg)                       # TODO: REMOVE ME
         if not msg:
             raise RecieveMessageFailureException
 

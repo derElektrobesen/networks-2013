@@ -252,6 +252,7 @@
      <string>Передача</string>
     </property>
     <addaction name="actionCreate_transmission"/>
+    <addaction name="actionAdd_torrent"/>
     <addaction name="separator"/>
     <addaction name="actionStart_transmission"/>
     <addaction name="actionStop_transmission"/>
@@ -321,6 +322,9 @@
    </property>
   </action>
   <action name="actionStart_transmission">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset>
      <normaloff>../images/Start-icon.png</normaloff>../images/Start-icon.png</iconset>
@@ -333,6 +337,9 @@
    </property>
   </action>
   <action name="actionStop_transmission">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset>
      <normaloff>../images/Stop-icon.png</normaloff>../images/Stop-icon.png</iconset>
@@ -345,6 +352,9 @@
    </property>
   </action>
   <action name="actionRemove_transmission">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset>
      <normaloff>../images/Remove-icon.png</normaloff>../images/Remove-icon.png</iconset>
@@ -359,6 +369,11 @@
   <action name="actionAbout">
    <property name="text">
     <string>Разработчики</string>
+   </property>
+  </action>
+  <action name="actionAdd_torrent">
+   <property name="text">
+    <string>Добавить торрент файл</string>
    </property>
   </action>
  </widget>

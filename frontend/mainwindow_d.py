@@ -3,8 +3,10 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from forms import *
+from forms import FormMain
 from thread import Thread
+
+from otherwindows import TorrentWindow, AboutWindow
 
 import json
 import hashlib
@@ -48,6 +50,12 @@ class MainWindow(QMainWindow, FormMain):
         self.cli_thread.start()
         self.srv_thread.start()
 
+        self.tableView_main.rowSelected.connect(self.on_main_table_row_changed)
+        self.tableView_main.rowDoubleClicked.connect(self.on_row_double_clicked)
+
+        self.transmissions = {}
+        self.ignore_row_change = 0
+
         self.load_torrents()
 
     def closeEvent(self, e):
@@ -86,34 +94,130 @@ class MainWindow(QMainWindow, FormMain):
         print(data)
         # TODO
 
-    def load_torrent(self, fname):
-        with open(fname, "rb") as f:
-            struct = pickle.load(f)
-            self.tableView_main.add_row(
-                name = struct['filename'],
-                packs = math.ceil(int(struct['filesize']) / PIECE_LEN),
-                sent = -1)                                          # all packs are sent
+    def load_torrent(self, fname = None, sent = -1, hsum = None, filename = None, filesize = None):
+        if fname:
+            with open(fname, "rb") as f:
+                struct = pickle.load(f)
+                if 'default_path' in struct:
+                    sent = -1
+                else:
+                    sent = 0
+                return self.load_torrent(sent = sent, hsum = struct['hsum'],
+                        filename = struct['filename'], filesize = struct['filesize'])
+
+        if not os.path.isfile("TORRENTS_PATH/" + hsum):
+            self.create_torrent_file(filename, filesize, hsum)
+
+        save = {}
+        if type(filesize) != int:
+            filesize = int(filesize)
+        self.tableView_main.add_row(
+            hsum = hsum,
+            name = filename,
+            packs = math.ceil(filesize / PIECE_LEN),
+            sent = sent)
+        save['filename'] = filename
+        save['filesize'] = filesize
+        save['active'] = 0
+        if (sent == -1):
+            save['finished'] = 1
+        else:
+            save['finished'] = 0
+            save['sent'] = sent
+        self.transmissions[hsum] = save
 
     def load_torrents(self):
         for fname in glob.glob("TORRENTS_PATH/*"):
-            self.load_torrent(fname)
+            self.load_torrent(fname = fname)
+
+    def create_torrent_file(self, filename, filesize, hsum, fname = None):
+        if type(filesize) != str:
+            filesize = str(filesize)
+        struct = {'filesize': filesize, 'hsum': hsum, 'filename': filename}
+        if fname:
+            struct['default_path'] = fname
+        else:
+            fname = "TORRENTS_PATH/" + hsum
+        with open(fname, 'wb') as f:
+            pickle.dump(struct, f)
 
     @pyqtSlot()
     def on_actionStart_transmission_triggered(self):
-        self.cli_thread.send_message({'action': START_TRM_ACT, 'filename': 'hell', \
-                'hsum': "944218a842edf845390ccd72e27617d7", \
-                'filesize': "59"})
+        key = self.tableView_main.current_row
+        s = self.transmissions[key]
+        if not s['finished']:
+            s['active'] = 1
+            self.cli_thread.send_message({'action': START_TRM_ACT, 'trmid': s['trmid']})
 
     @pyqtSlot()
     def on_actionCreate_transmission_triggered(self):
         fname = QFileDialog.getOpenFileName(self, 'Open file to create a torrent', '~')
-        struct = { \
-            'default_path': fname, \
-            'filesize': str(os.path.getsize(fname)), \
-            'hsum': hashlib.md5(open(fname).read().encode()).hexdigest(), \
-            'filename': ntpath.basename(fname), \
-        }
-        path = "TORRENTS_PATH/" + struct['hsum']
-        with open(path, 'wb') as f:
-            pickle.dump(struct, f)
-        self.load_torrent(path)
+        self.create_torrent_file(ntpath.basename(fname), os.path.getsize(fname),
+                hashlib.md5(open(fname).read().encode()).hexdigest(), fname)
+        self.load_torrent(fname = "TORRENTS_PATH/" + hsum)
+
+    @pyqtSlot()
+    def on_actionRemove_transmission_triggered(self):
+        key = self.tableView_main.current_row
+        if not key:
+            return
+        if self.transmissions[key]['active']:
+            self.on_actionStop_transmission_triggered()
+        self.tableView_main.remove_row(key)
+        try:
+            os.remove("TORRENTS_PATH/" + key)
+        except OSError:
+            pass
+        del self.transmissions[key]
+
+    @pyqtSlot()
+    def on_actionStop_transmission_triggered(self):
+        key = self.tableView_main.current_row
+        s = self.transmissions[key]
+        self.cli_thread.send_message({'action': STOP_TRM_ACT,
+            'filename': s['filename'], 'hsum': key, 'filesize': str(s['filesize'])})
+
+    @pyqtSlot('QString')
+    def on_main_table_row_changed(self, key):
+        if not self.ignore_row_change:
+            self.ignore_row_change = 1
+            return
+        if self.transmissions[key]['active']:
+            self.actionStop_transmission.setEnabled(True)
+            self.actionStart_transmission.setEnabled(False)
+        else:
+            self.actionStop_transmission.setEnabled(False)
+            self.actionStart_transmission.setEnabled(True)
+        self.actionRemove_transmission.setEnabled(True)
+
+    @pyqtSlot('QString')
+    def on_row_double_clicked(self, key):
+        form = TorrentWindow(self)
+        s = self.transmissions[key]
+        form.size_edit.setText(str(s['filesize']))
+        form.sum_edit.setText(key)
+        form.name_edit.setText(s['filename'])
+        form.save_btn.setVisible(False)
+        form.show()
+
+    @pyqtSlot()
+    def on_actionAdd_torrent_triggered(self):
+        form = TorrentWindow(self)
+        form.size_edit.setReadOnly(False)
+        form.sum_edit.setReadOnly(False)
+        form.name_edit.setReadOnly(False)
+        form.save_btn.clicked.connect(self.add_remote_torrent)
+        self.current_torrent_form = form
+        form.show()
+
+    @pyqtSlot(QEvent)
+    def add_remote_torrent(self):
+        form = self.current_torrent_form
+        if (len(form.sum_edit.text()) != 32):
+            QMessageBox.information(self, 'Ошибка',
+                'Необходимо указать корректную MD5 сумму файла', QMessageBox.Ok)
+        else:
+            form.close()
+            self.load_torrent(filename = form.name_edit.text(),
+                    filesize = form.size_edit.text(), sent = 0,
+                    hsum = form.sum_edit.text())

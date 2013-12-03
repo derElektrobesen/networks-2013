@@ -3,6 +3,8 @@
 from PyQt4.QtCore import *
 from net_sock import *
 
+import os
+
 class Thread(QThread):
     msg_came = pyqtSignal('QString')
     error_came = pyqtSignal('QString', 'QString')
@@ -10,6 +12,10 @@ class Thread(QThread):
     def __init__(self, sock_name):
         # callback takes 1 argument: self (QThread) * to emit some actions *
         super(Thread, self).__init__()
+        try:
+            os.remove(sock_name)
+        except OSError:
+            pass
         self.__sock = Socket(sock_f_name = sock_name)
         self.__can_work = True
         self.__deleted = False
