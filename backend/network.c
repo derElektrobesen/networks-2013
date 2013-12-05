@@ -75,7 +75,7 @@ static ssize_t receive_data(int sock, char *buf, size_t len) {
             rlen = -1;
         } else {
             memcpy(&(msg->bytes_count), size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
-            log(OTHER, ">>> receive_data, length = %lu, sock = %d", msg->bytes_count, sock);
+            log(OTHER, ">>> receive_data, length = %zu, sock = %d", msg->bytes_count, sock);
             msg->bytes_read = 0;
         }
     } else {
@@ -109,7 +109,7 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
 
     memcpy(size, &len, r);
-    log(OTHER, "<<< send_data, length = %lu, sock = %d", len, sock);
+    log(OTHER, "<<< send_data, length = %zu, sock = %d", len, sock);
 
     if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
         r = -1;
@@ -345,7 +345,7 @@ static int process_sockets(fd_set *set, socket_callback callback,
                 offset++;
                 i--;
             } else if (bytes_read) {
-                log(OTHER, "bytes received: %lu", bytes_read);
+                log(OTHER, "bytes received: %zu", bytes_read);
                 buf[bytes_read] = 0;
                 if (callback)
                     callback(*(opened_sockets + i), buf, bytes_read);
@@ -779,7 +779,7 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
                 close(q->sockets[i]);
                 q->count--;
             } else if (bytes_read) {
-                log(OTHER, "bytes read: %lu", bytes_read);
+                log(OTHER, "bytes read: %zu", bytes_read);
                 msg[bytes_read] = 0;
                 if (callback)
                     callback(q->sockets[i], msg, bytes_read);

@@ -14,7 +14,7 @@ static void _get_cache(int id, const unsigned char *data,
     start = DATA_BLOCK_LEN * c->end_piece;
     len = st_arr_len(c->data);
     count = CACHED_PIECES_COUNT;
-    log(SERVER, "getting cache: start: %lu, len: %lu, count: %lu", 
+    log(SERVER, "getting cache: start: %zu, len: %zu, count: %zu", 
             start, len, count);
     if (!data) {
         fseek(c->file, start, SEEK_SET);

@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
     memset(&acts, 0, sizeof(acts));
 
     if (sizeof(struct cli_fields) + PIECE_LEN_TSIZE != PROTO_STRUCT_SIZE) {
-        err(OTHER, "Wrong PROTO_STRUCT_SIZE given, %lu expected",
+        err(OTHER, "Wrong PROTO_STRUCT_SIZE given, %zu expected",
                 sizeof(struct cli_fields) - PIECE_LEN_TSIZE);
         exit(1);
     }

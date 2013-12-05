@@ -368,7 +368,7 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
 
     if (d->pieces_copied == d->f_piece - d->s_piece) {
         /* Данные можно сбрасывать на жесткий диск */
-        log(CLIENT, "writing %lu bytes", d->full_size);
+        log(CLIENT, "writing %zu bytes", d->full_size);
         memcpy(a, d->data, 20);
         memcpy(b, d->data + d->full_size - 20, 20);
         a[19] = 0;
