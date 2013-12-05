@@ -83,10 +83,10 @@ class MainWindow(QMainWindow, FormMain):
     def handle_error(self, class_name, msg = None, sender = None):
         QMessageBox.information(self, 'Ошибка', \
                 'Возникла ошибка в потоке "{thread}": {msg}'.format( \
-                (sender == self.srv and 'Сервер') or \
-                (sender == self.cli and 'Клиент') or \
-                'Неизвестно', \
-                msg), QMessageBox.Ok)
+                thread = (sender == self.srv and 'Сервер') or \
+                         (sender == self.cli and 'Клиент') or \
+                         'Неизвестно', \
+                msg = msg), QMessageBox.Ok)
 
     def handle_backend_message(self, msg, sender = None):
         try:

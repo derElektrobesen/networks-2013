@@ -6,8 +6,8 @@ import json
 import struct
 
 class SocketException(Exception):
-    def __init__(self):
-        super(SocketException, self).__init__()
+    def __init__(self, arg):
+        super(SocketException, self).__init__(arg)
 
 __ex_classes = "NoParamsExceptions MessageLenException BrokenPipeException \
     NoConnectionAcceptedException ReceiveMessageFailureException".rstrip().split()
@@ -15,8 +15,8 @@ __ex_classes = "NoParamsExceptions MessageLenException BrokenPipeException \
 for c in __ex_classes:
     exec("""
 class {class_name}(SocketException):
-    def __init__(self):
-        super({class_name}, self).__init__()
+    def __init__(self, arg):
+        super({class_name}, self).__init__(arg)
     """.format(class_name = c))
 
 class Socket:
@@ -57,7 +57,7 @@ class Socket:
 
     def send_msg(self, data, sock = None):
         msg = json.dumps(data)
-        print("sent:     " + msg)                       # TODO: REMOVE ME
+        print("sent:     " + msg.decode("utf-8"))                       # TODO: REMOVE ME
         if not sock:
             sock = self.__client_sock
 
@@ -68,9 +68,9 @@ class Socket:
             raise MessageLenException(msg)
 
         if sock.send(struct.pack('L', len(msg))) == 0:
-            raise BrokenPipeException()
+            raise BrokenPipeException("send failure")
         if sock.send(msg.encode()) == 0:
-            raise BrokenPipeException()
+            raise BrokenPipeException("send failure")
 
     def recv_msg(self, sock = None):
         if not sock:
@@ -80,12 +80,16 @@ class Socket:
             raise NoConnectionAcceptedException
 
         msglen = sock.recv(LEN_MSG_LEN)
+
+        if not msglen:
+            raise BrokenPipeException("recv failure")
+
         msglen = struct.unpack('L', msglen)[0]
         if not msglen:
             raise ReceiveMessageFailureException
 
         msg = sock.recv(msglen)
-        print("received: " + msg)                       # TODO: REMOVE ME
+        print("received: " + msg.decode("utf-8"))                       # TODO: REMOVE ME
         if not msg:
             raise RecieveMessageFailureException
 

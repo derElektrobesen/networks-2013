@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
 
     if (sizeof(struct cli_fields) + PIECE_LEN_TSIZE != PROTO_STRUCT_SIZE) {
         err(OTHER, "Wrong PROTO_STRUCT_SIZE given, %zu expected",
-                sizeof(struct cli_fields) - PIECE_LEN_TSIZE);
+                sizeof(struct cli_fields) + PIECE_LEN_TSIZE);
         exit(1);
     }
 
