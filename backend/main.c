@@ -103,10 +103,6 @@ int main(int argc, char **argv) {
     if (sizeof(struct cli_fields) + PIECE_LEN_TSIZE != PROTO_STRUCT_SIZE) {
         err(OTHER, "Wrong PROTO_STRUCT_SIZE given, %zu expected",
                 sizeof(struct cli_fields) + PIECE_LEN_TSIZE);
-        log(OTHER, "Expected sizes: \n\tpack_id_t:  %zu\n\tpiece_id_t: %zu\n\tperror_t:  %zu\n\t"
-                "file_id_t: %zu\n\tMD5_DIGEST_LENGTH: %u\n\tFILE_NAME_MAX_LEN: %u\nint: %zu, long: %zu\nlong long: %zu",
-                sizeof(pack_id_t), sizeof(piece_id_t), sizeof(perror_t), sizeof(file_id_t),
-                MD5_DIGEST_LENGTH, FILE_NAME_MAX_LEN, sizeof(int), sizeof(long), sizeof(long long));
         exit(1);
     }
 
