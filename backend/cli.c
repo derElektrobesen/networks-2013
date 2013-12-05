@@ -324,7 +324,7 @@ static void push_file_data(struct file_full_data_t *data,
     struct file_udata_t *ud;
     struct file_data_t *d;
     unsigned char *d_ptr = NULL;
-    size_t piece_len = f->piece_len;
+    piece_len_t piece_len = f->piece_len;
     int i;
 
     if (cli->piece_id == t->pieces.max_piece_num - 1)

@@ -44,7 +44,7 @@
  */
 struct file_udata_t {
     piece_id_t piece_id;            /**< Индекс куска файла                     */
-    size_t piece_len;               /**< Текущий размер куска                   */
+    piece_len_t piece_len;          /**< Текущий размер куска                   */
     unsigned char data[DATA_BLOCK_LEN]; /**< Кусок данных                       */
 };
 
