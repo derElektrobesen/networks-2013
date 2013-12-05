@@ -55,7 +55,7 @@
         data[DATA_BLOCK_LEN] = 0;                               \
         convert_hex_str(r, sizeof(r), (f_ptr)->cli_field.hsumm, MD5_DIGEST_LENGTH); \
         log(OTHER, "pack_id: %d, piece_id: %d, file_id: %d, "   \
-                   "error: %d, piece_len: %zu, hsumm:%s, fname: %s", \
+                   "error: %d, piece_len: %llu, hsumm:%s, fname: %s", \
                    (f_ptr)->cli_field.pack_id,                  \
                    (f_ptr)->cli_field.piece_id,                 \
                    (f_ptr)->cli_field.file_id,                  \

@@ -14,7 +14,7 @@ typedef unsigned int pack_id_t;
 typedef unsigned int piece_id_t;
 typedef signed int file_id_t;
 typedef unsigned short perror_t;
-typedef unsigned long piece_len_t;
+typedef unsigned long long piece_len_t;
 
 #define PACK_ID_TSIZE sizeof(pack_id_t)
 #define PIECE_NUM_TSIZE sizeof(piece_id_t)
