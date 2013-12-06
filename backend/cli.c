@@ -18,7 +18,7 @@ static const struct gui_actions *g_acts;
  */
 static int require_piece(struct cli_fields *f, struct active_connection *con) {
     char msg[BUF_MAX_LEN];
-    size_t msg_len;
+    int msg_len;
     int r = 0;
 
     f->pack_id = con->pack_id = rand() % MAX_PACK_NUM;

@@ -62,12 +62,12 @@ static int init_server(struct sockaddr_in *addr, int queue_len, int proto) {
  * Возвращает число считанных байт если передача завершена, -1 в случае ошибки
  * и 0 если еще не все сообщение было получено
  */
-static ssize_t receive_data(int sock, char *buf, size_t len) {
-    ssize_t rlen = 0;
+static int receive_data(int sock, char *buf, size_t len) {
+    int rlen = 0;
     char size[MSG_LEN_T_SIZE];
     struct message *msg = msgs + sock;
     
-    if (sizeof(size_t) != MSG_LEN_T_SIZE) {
+    if (sizeof(rlen) != MSG_LEN_T_SIZE) {
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
     }
 
@@ -76,7 +76,7 @@ static ssize_t receive_data(int sock, char *buf, size_t len) {
             rlen = -1;
         } else {
             memcpy(&(msg->bytes_count), size, sizeof(rlen) < MSG_LEN_T_SIZE ? sizeof(rlen) : MSG_LEN_T_SIZE);
-            log(OTHER, ">>> receive_data, length = %zu, sock = %d", msg->bytes_count, sock);
+            log(OTHER, ">>> receive_data, length = %d, sock = %d", msg->bytes_count, sock);
             msg->bytes_read = 0;
         }
     } else {
@@ -102,16 +102,16 @@ static ssize_t receive_data(int sock, char *buf, size_t len) {
 /**
  * Ф-ия посылает данные сокету
  */
-ssize_t send_data(int sock, char *buf, size_t len, int flags) {
+int send_data(int sock, char *buf, int len, int flags) {
     char size[MSG_LEN_T_SIZE];
-    ssize_t r = sizeof(len) < MSG_LEN_T_SIZE ? sizeof(len) : MSG_LEN_T_SIZE;
+    int r = sizeof(len) < MSG_LEN_T_SIZE ? sizeof(len) : MSG_LEN_T_SIZE;
 
-    if (sizeof(size_t) != MSG_LEN_T_SIZE) {
+    if (sizeof(r) != MSG_LEN_T_SIZE) {
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
     }
 
     memcpy(size, &len, r);
-    log(OTHER, "<<< send_data, length = %zu, sock = %d", len, sock);
+    log(OTHER, "<<< send_data, length = %d, sock = %d", len, sock);
 
     if (send(sock, size, MSG_LEN_T_SIZE, flags) != r) {
         r = -1;

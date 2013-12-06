@@ -29,8 +29,8 @@
 
 struct message {
     char message[BUF_MAX_LEN];
-    ssize_t bytes_count;
-    ssize_t bytes_read;
+    int bytes_count;
+    int bytes_read;
 };
 
 /* Types */
@@ -41,7 +41,7 @@ typedef int (*server_response_callback)(struct sockets_queue *queue);
 /* Prototypes */
 int start_server(socket_callback process_cli_msg_callback);
 int start_client(socket_callback process_srv_msg_callback, queue_dispatcher dispatcher, struct sockets_queue *q);
-ssize_t send_data(int sock, char *buf, size_t len, int flags);
+int send_data(int sock, char *buf, int len, int flags);
 void setup_gui_msgs(struct gui_actions *acts);
 
 #endif

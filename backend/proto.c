@@ -20,7 +20,7 @@ int get_hash(struct cli_fields *fields, unsigned char *md5digest) {
  * Заполнение структуры cli_fields клиентом
  * Протокол получен от сервера
  */
-int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len) {
+int encode_cli_msg(struct cli_fields *fields, const char *msg, int msg_len) {
     int r = 0;
     perror_t e = 0;
     const char *p = msg;
@@ -43,7 +43,7 @@ int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len) {
  * Заполнение структуры srv_fields сервером
  * Протокол получен от клиента
  */
-int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len) {
+int encode_srv_msg(struct srv_fields *fields, const char *msg, int msg_len) {
     int r = 0;
     perror_t e = 0;
     const char *p = msg;
@@ -68,8 +68,8 @@ int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len) {
  * Формирование сообщения клиентом
  * Передается серверу
  */
-size_t decode_cli_msg(const struct cli_fields *fields, char *msg) {
-    size_t msg_length;
+int decode_cli_msg(const struct cli_fields *fields, char *msg) {
+    int msg_length;
     char *p_start, *p_end;
 
     msg_length = 0;
@@ -88,8 +88,8 @@ size_t decode_cli_msg(const struct cli_fields *fields, char *msg) {
 /**
  * Формирование сообщения (протокола) сервером
  */
-size_t decode_srv_msg(const struct srv_fields *fields, char *msg) {
-    size_t msg_length;
+int decode_srv_msg(const struct srv_fields *fields, char *msg) {
+    int msg_length;
     char *p_start, *p_end;
 
     msg_length = 0;

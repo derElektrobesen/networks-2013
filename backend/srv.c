@@ -219,7 +219,7 @@ static void process_cli_msg(struct srv_fields *f) {
 }
 
 static void send_answer(const struct srv_fields *f, int sock) {
-    size_t msg_len;
+    int msg_len;
     char msg[BUF_MAX_LEN];
 
     char buf[255];

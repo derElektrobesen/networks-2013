@@ -67,7 +67,7 @@ class Socket:
         if len(msg) > MSG_MAX_LEN:
             raise MessageLenException(msg)
 
-        if sock.send(struct.pack('L', len(msg))) == 0:
+        if sock.send(struct.pack('i', len(msg))) == 0:
             raise BrokenPipeException("send failure")
         if sock.send(msg.encode()) == 0:
             raise BrokenPipeException("send failure")
@@ -84,7 +84,7 @@ class Socket:
         if not msglen:
             raise BrokenPipeException("recv failure")
 
-        msglen = struct.unpack('L', msglen)[0]
+        msglen = struct.unpack('i', msglen)[0]
         if not msglen:
             raise ReceiveMessageFailureException()
 

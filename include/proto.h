@@ -48,10 +48,10 @@ struct srv_fields {
     unsigned char piece[DATA_BLOCK_LEN];
 };
 
-int encode_cli_msg(struct cli_fields *fields, const char *msg, size_t msg_len);
-size_t decode_cli_msg(const struct cli_fields *fields, char *msg);
-int encode_srv_msg(struct srv_fields *fields, const char *msg, size_t msg_len);
-size_t decode_srv_msg(const struct srv_fields *fields, char *msg);
+int encode_cli_msg(struct cli_fields *fields, const char *msg, int msg_len);
+int decode_cli_msg(const struct cli_fields *fields, char *msg);
+int encode_srv_msg(struct srv_fields *fields, const char *msg, int msg_len);
+int decode_srv_msg(const struct srv_fields *fields, char *msg);
 
 void decode_proto_error(perror_t e, char *s, int max_len);
 
