@@ -158,7 +158,7 @@ class MainWindow(QMainWindow, FormMain):
         if not s['finished']:
             s['active'] = 1
             self.cli_thread.send_message({'action': START_TRM_ACT,
-                'hsum': key, 'filename': s['filename'], 'filesize': s['filesize']})
+                'hsum': key, 'filename': s['filename'], 'filesize': str(s['filesize'])})
 
     @pyqtSlot()
     def on_actionCreate_transmission_triggered(self):
