@@ -38,6 +38,7 @@ INTERFACE_SRV_SOCKET_PATH = $(HOME)/i_srv.sock
 MSG_LEN_T_SIZE = 8
 BUF_MAX_LEN=8000
 FRONTEND_HOME = $(shell pwd)/$(F_DIR)
+EXEC_DIR = $(shell pwd)
 FILE_PATH_FLAG = default_size
 
 PROTO_STRUCT_SIZE = 296
@@ -121,7 +122,9 @@ MAIN_RULES_ = \
 			TORRENTS_PATH:$(TORRENTS_DIR) \
 			FILE_PATH_FLAG:$(FILE_PATH_FLAG) \
 			DOWNLOADS_PATH:$(DOWNLOADS_DIR) \
-			PIECE_LEN:$(PROTO_STRUCT_SIZE)
+			PIECE_LEN:$(PROTO_STRUCT_SIZE) \
+			CLI:$(EXEC_DIR)/$(CLI_TAR) \
+			SRV:$(EXEC_DIR)/$(SRV_TAR)
 
 CREATE_RULE = $(shell echo '$1' | perl -e 'my $$r = ""; while (<>) { s/\s+/*/g; $$r .= $$_; } print "$$r"')
 UI_RULES = $(call CREATE_RULE, $(UI_RULES_))

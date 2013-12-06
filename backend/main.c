@@ -59,6 +59,10 @@ static void daemonize(const char *daemon_name) {
     struct rlimit rl;
     int block_fd;
 
+
+    if (strstr(daemon_name, "/"))
+        daemon_name = strrchr(daemon_name, '/');
+
     snprintf(file_name, st_arr_len(file_name), "%s/%s.pid", LOCK_FILE_PATH, daemon_name);
 
     if ((block_fd = is_running(file_name)) == -1) {

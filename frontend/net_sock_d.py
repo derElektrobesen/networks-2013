@@ -15,7 +15,7 @@ __ex_classes = "NoParamsExceptions MessageLenException BrokenPipeException \
 for c in __ex_classes:
     exec("""
 class {class_name}(SocketException):
-    def __init__(self, arg):
+    def __init__(self, arg = ""):
         super({class_name}, self).__init__(arg)
     """.format(class_name = c))
 
@@ -57,12 +57,12 @@ class Socket:
 
     def send_msg(self, data, sock = None):
         msg = json.dumps(data)
-        print("sent:     " + msg.decode("utf-8"))                       # TODO: REMOVE ME
+        print("sent:     " + msg)                       # TODO: REMOVE ME
         if not sock:
             sock = self.__client_sock
 
         if not sock:
-            raise NoConnectionAcceptedException
+            raise NoConnectionAcceptedException()
 
         if len(msg) > MSG_MAX_LEN:
             raise MessageLenException(msg)
@@ -77,7 +77,7 @@ class Socket:
             sock = self.__client_sock
 
         if not sock:
-            raise NoConnectionAcceptedException
+            raise NoConnectionAcceptedException()
 
         msglen = sock.recv(LEN_MSG_LEN)
 
@@ -86,11 +86,11 @@ class Socket:
 
         msglen = struct.unpack('L', msglen)[0]
         if not msglen:
-            raise ReceiveMessageFailureException
+            raise ReceiveMessageFailureException()
 
         msg = sock.recv(msglen)
         print("received: " + msg.decode("utf-8"))                       # TODO: REMOVE ME
         if not msg:
-            raise RecieveMessageFailureException
+            raise RecieveMessageFailureException()
 
         return msg.decode()

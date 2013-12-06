@@ -26,6 +26,9 @@ class Thread(QThread):
     def stop_thread(self):
         if not self.__deleted:
             self.__can_work = False
+            self.__sock.send_msg({
+                "action": TERMINATE_ACT,
+            });
             self.__sock.clear()
             self.terminate()
             self.wait()

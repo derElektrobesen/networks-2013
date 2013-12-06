@@ -16,6 +16,7 @@ import glob
 import math
 
 import os
+import subprocess
 
 class MainException(Exception):
     def __init__(self):
@@ -61,12 +62,20 @@ class MainWindow(QMainWindow, FormMain):
         self.transmissions = {}
         self.ignore_row_change = 0
 
+        self.run_daemons()
+
         self.load_torrents()
 
     def closeEvent(self, e):
         self.hide()
         self.cli_thread.stop_thread()
         self.srv_thread.stop_thread()
+
+    def run_daemons(self):
+        cli = subprocess.Popen("CLI", stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+        srv = subprocess.Popen("SRV", stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, stdin=subprocess.PIPE)
 
     def handle_srv_error(self, class_name, msg = None):
         return self.handle_error(class_name, msg, self.srv)
@@ -96,7 +105,7 @@ class MainWindow(QMainWindow, FormMain):
 
     def __handle_backend_message(self, msg, sender = None):
         data = json.loads(msg, encoding='utf-8')
-        print(data)
+        # TODO
 
     def load_torrent(self, fname = None, sent = -1, hsum = None, filename = None, filesize = None):
         if fname:

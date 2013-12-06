@@ -51,7 +51,7 @@ while (my $str = <$inf>) {
         if ($mask{$_}->{module}) {
             $str =~ s/(\b$_\s*=\s*)([^(]+)/$1$mask{$_}->{text}/g;
         } else {
-            $str =~ s/$_/$mask{$_}->{text}/g;
+            $str =~ s/\b$_\b/$mask{$_}->{text}/g;
         }
     }
     if (!$done && $str =~ /^from\s/) {
