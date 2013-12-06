@@ -1,30 +1,42 @@
 #ifndef MACRO_H
 #define MACRO_H
 
+#ifdef DAEMONIZE
+#   include <syslog.h>
+#   define LOG_FUNC syslog
+#   define LOG_CMD  LOG_INFO
+#   define ERR_CMD  LOG_ERR
+#else
+#   define OPEN_LOG
+#   define LOG_FUNC fprintf
+#   define LOG_CMD  stdout
+#   define ERR_CMD  stderr
+#endif
+
 /* For logging */
 #define OTHER      -1
 #define SERVER      0
 #define CLIENT      1
 #define BROADCAST   2
 
-#ifdef DEBUG
-#   define print_cli(cli) \
+#define print_cli(cli) \
     (cli == SERVER ? "Server" : \
     (cli == CLIENT ? "Client" : \
     (cli == BROADCAST ? "Broadcast" : "Other")))
 
-#   ifdef PRINT_LINES
-#       define log(cli, f_str, args...) \
-            fprintf(stdout, "[ %9s ] " f_str " at line %d\n", print_cli(cli), ##args, __LINE__)
-#       define err(cli, f_str, args...) \
-            fprintf(stderr, "[ %9s ] " f_str " at line %d\n", print_cli(cli), ##args, __LINE__)
-#   else
-#       define log(cli, f_str, args...) \
-            fprintf(stdout, "[ %9s ] " f_str "\n", print_cli(cli), ##args)
-#       define err(cli, f_str, args...) \
-            fprintf(stderr, "[ %9s ] ERROR ------------------------> " f_str "\n", print_cli(cli), ##args)
-#   endif
+#ifdef PRINT_LINES
+#    define log(cli, f_str, args...) { \
+        LOG_FUNC(LOG_CMD, "[ %9s ] " f_str " at line %d\n", print_cli(cli), ##args, __LINE__); }
+#    define err(cli, f_str, args...) { \
+        LOG_FUNC(ERR_CMD, "[ %9s ] " f_str " at line %d\n", print_cli(cli), ##args, __LINE__); }
+#else
+#   define log(cli, f_str, args...) { \
+        LOG_FUNC(LOG_CMD, "[ %9s ] " f_str "\n", print_cli(cli), ##args); }
+#   define err(cli, f_str, args...) { \
+        LOG_FUNC(ERR_CMD, "[ %9s ] ERROR ------------------------> " f_str "\n", print_cli(cli), ##args); }
+#endif
 
+#ifdef DEBUG
 #   define err_n(cli, f_str, args...) \
         err(cli, f_str " : %s", ##args, strerror(errno)) /* \n don't needed */
 #   define locate log(OTHER, "%s, %d", __FUNCTION__, __LINE__)

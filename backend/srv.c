@@ -240,9 +240,9 @@ int process_client_message(int sender_sock, const char *msg, size_t count) {
 
     r = encode_cli_msg(&(f.cli_field), msg, count);
     log_cli_fields(&(f.cli_field));
-    if (r)
+    if (r) {
         err(SERVER, "Encoding cli message failure");
-    else {
+    } else {
         process_cli_msg(&f);
         send_answer(&f, sender_sock);
     }

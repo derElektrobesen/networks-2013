@@ -351,8 +351,9 @@ static void push_file_data(struct file_full_data_t *data,
     }
     if (d_ptr)
         memcpy(d_ptr, f->piece, f->piece_len);
-    else
+    else {
         err(CLIENT, "Piece %d saving failure", cli->piece_id);
+    }
 }
 
 /**
@@ -373,8 +374,9 @@ static int flush_file_data(struct file_full_data_t *data, FILE *file,
         memcpy(b, d->data + d->full_size - 20, 20);
         a[19] = 0;
         b[19] = 0;
-        if (fwrite(d->data, sizeof(d->data[0]), d->full_size, file) != d->full_size)
+        if (fwrite(d->data, sizeof(d->data[0]), d->full_size, file) != d->full_size) {
             err_n(CLIENT, "fwrite failure");
+        }
 
         d->s_piece = d->f_piece;
         t->pieces.flushed_pieces_count += d->pieces_copied;
@@ -597,8 +599,9 @@ void refresh_active_connection(int sock) {
                 f.piece_id = t->pieces.cur_piece;
                 if (require_piece(&f, tmp))
                     t->pieces.cur_piece++;
-            } else
+            } else {
                 err(CLIENT, "add connection failure");
+            }
         }
     }
 }

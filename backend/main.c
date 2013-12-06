@@ -11,6 +11,12 @@
 
 #include "../include/network.h"
 
+#ifdef CLI
+#   define TARGET "client"
+#elif defined SRV
+#   define TARGET "server"
+#endif
+
 #ifdef DAEMONIZE
 
 #   define LOCK_MODE   (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
@@ -113,6 +119,7 @@ int main(int argc, char **argv) {
 #endif /* DONT_DO_SRAND */
 #ifdef DAEMONIZE
 	daemonize(argv[0]);
+    openlog(IDENT TARGET, LOG_ODELAY | LOG_PID, LOG_USER);
 #endif /* DAEMONIZE */
 
     setup_gui_acts(&acts);  /* Установить и сохранить обработчики, вызываемые при получении сообщения   */

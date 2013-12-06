@@ -67,8 +67,9 @@ static ssize_t receive_data(int sock, char *buf, size_t len) {
     char size[MSG_LEN_T_SIZE];
     struct message *msg = msgs + sock;
     
-    if (sizeof(size_t) != MSG_LEN_T_SIZE)
+    if (sizeof(size_t) != MSG_LEN_T_SIZE) {
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
+    }
 
     if (msg->bytes_count == 0) {
         if (recv(sock, size, sizeof(size), MSG_WAITALL) != sizeof(size)) {
@@ -105,8 +106,9 @@ ssize_t send_data(int sock, char *buf, size_t len, int flags) {
     char size[MSG_LEN_T_SIZE];
     ssize_t r = sizeof(len) < MSG_LEN_T_SIZE ? sizeof(len) : MSG_LEN_T_SIZE;
 
-    if (sizeof(size_t) != MSG_LEN_T_SIZE)
+    if (sizeof(size_t) != MSG_LEN_T_SIZE) {
         err(OTHER, "Data len size != %d bytes", MSG_LEN_T_SIZE);
+    }
 
     memcpy(size, &len, r);
     log(OTHER, "<<< send_data, length = %zu, sock = %d", len, sock);
@@ -159,8 +161,9 @@ static void gui_actions_dispatcher(json_char *act, json_char **onames,
         g_acts->stop_trm(onames, opts, ocount, q);
     else if (g_acts->terminate && strcmp(act, TERMINATE_ACT) == 0)
         g_acts->terminate(onames, opts, ocount, q);
-    else
+    else {
         err(OTHER, "unknown action given: %s", act);
+    }
 }
 
 /**
@@ -186,17 +189,17 @@ static void process_gui_message(int sock, const struct sockets_queue *q) {
         for (i = 0; i < json->u.object.length; i++) {
             names[count] = (json->u.object.values + i)->name;
             values[count] = get_string_value((json->u.object.values + i)->value);
-            if (!values[count])
+            if (!values[count]) {
                 err(OTHER, "JSON parsing failure on option %s", names[count]);
-            else
+            } else
                 count++;
         }
     }
 
     cur = search_option("action", names, values, count);
-    if (!cur)
+    if (!cur) {
         err(OTHER, "Invalid JSON came: 'type' field is required");
-    else
+    } else
         gui_actions_dispatcher(cur, names, values, count, q);
 
     json_value_free(json);
@@ -232,8 +235,9 @@ static int init_gui_sock(const char *sock_path) {
 static int make_sock_nonblock(int sock) {
     int e = 0;
     /* e = fcntl(sock, F_SETFL, O_NONBLOCK); */
-    if (e < 0)
+    if (e < 0) {
         err_n(-1, "fcntl failure");
+    }
     return e;
 }
 
@@ -623,8 +627,9 @@ static void *broadcast_start(void *arg) {
 
     while (1) {
         /* log(BROADCAST, "sending broadcast message");  */
-        if (sendto(sock, msg, msg_len, 0, (struct sockaddr *)&brc_addr, sizeof(brc_addr)) != msg_len)
+        if (sendto(sock, msg, msg_len, 0, (struct sockaddr *)&brc_addr, sizeof(brc_addr)) != msg_len) {
             err_n(BROADCAST, "sendto failure");
+        }
         sleep(SHORT_TIMEOUT);
     }
     return NULL;
@@ -641,11 +646,11 @@ inline static int broadcast(pthread_t *thread) {
     int err = 0;
 
     err = pthread_create(thread, NULL, &broadcast_start, NULL);
-    if (err != 0)
+    if (err != 0) {
         err_n(BROADCAST, "pthread_create failure");
-    else
+    } else {
         log(BROADCAST, "broadcast thread created successfully");
-
+    }
     return err;
 }
 
