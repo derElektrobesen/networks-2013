@@ -60,10 +60,8 @@ class MainWindow(QMainWindow, FormMain):
         self.tableView_main.rowDoubleClicked.connect(self.on_row_double_clicked)
 
         self.transmissions = {}
-        self.ignore_row_change = 0
 
         self.run_daemons()
-
         self.load_torrents()
 
     def closeEvent(self, e):
@@ -164,9 +162,10 @@ class MainWindow(QMainWindow, FormMain):
     @pyqtSlot()
     def on_actionCreate_transmission_triggered(self):
         fname = QFileDialog.getOpenFileName(self, 'Open file to create a torrent', '~')
-        hsum = hashlib.md5(open(fname, "rb").read()).hexdigest()
-        self.create_torrent_file(ntpath.basename(fname), os.path.getsize(fname), hsum, fname)
-        self.load_torrent(fname = "TORRENTS_PATH/" + hsum)
+        if fname:
+            hsum = hashlib.md5(open(fname, "rb").read()).hexdigest()
+            self.create_torrent_file(ntpath.basename(fname), os.path.getsize(fname), hsum, fname)
+            self.load_torrent(fname = "TORRENTS_PATH/" + hsum)
 
     @pyqtSlot()
     def on_actionRemove_transmission_triggered(self):
@@ -191,9 +190,6 @@ class MainWindow(QMainWindow, FormMain):
 
     @pyqtSlot('QString')
     def on_main_table_row_changed(self, key):
-        if not self.ignore_row_change:
-            self.ignore_row_change = 1
-            return
         if self.transmissions[key]['active']:
             self.actionStop_transmission.setEnabled(True)
             self.actionStart_transmission.setEnabled(False)

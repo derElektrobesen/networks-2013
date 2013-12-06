@@ -290,7 +290,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../images/Create-icon.png</normaloff>../images/Create-icon.png</iconset>
+     <normaloff>images/Create-icon.png</normaloff>images/Create-icon.png</iconset>
    </property>
    <property name="text">
     <string>Создать торрент файл</string>
@@ -327,7 +327,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../images/Start-icon.png</normaloff>../images/Start-icon.png</iconset>
+     <normaloff>images/Start-icon.png</normaloff>images/Start-icon.png</iconset>
    </property>
    <property name="text">
     <string>Начать передачу</string>
@@ -342,7 +342,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../images/Stop-icon.png</normaloff>../images/Stop-icon.png</iconset>
+     <normaloff>images/Stop-icon.png</normaloff>images/Stop-icon.png</iconset>
    </property>
    <property name="text">
     <string>Прервать передачу</string>
@@ -357,7 +357,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../images/Remove-icon.png</normaloff>../images/Remove-icon.png</iconset>
+     <normaloff>images/Remove-icon.png</normaloff>images/Remove-icon.png</iconset>
    </property>
    <property name="text">
     <string>Удалить передачу</string>

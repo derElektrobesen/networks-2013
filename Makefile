@@ -13,7 +13,8 @@ O_DIR = obj
 
 B_DIR = backend
 F_DIR = frontend
-FORMS_DIR = $(F_DIR)/forms
+FORMS_DIR_NAME = forms
+FORMS_DIR = $(F_DIR)/$(FORMS_DIR_NAME)
 PATCHER = $(F_DIR)/patcher.pl
 
 # gui actions

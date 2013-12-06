@@ -3,6 +3,8 @@
 from PyQt4.QtCore import *
 from net_sock import *
 
+from time import sleep
+
 import os
 
 class Thread(QThread):
@@ -29,6 +31,7 @@ class Thread(QThread):
             self.__sock.send_msg({
                 "action": TERMINATE_ACT,
             });
+            sleep(2)
             self.__sock.clear()
             self.terminate()
             self.wait()
@@ -56,5 +59,9 @@ class Thread(QThread):
     def run(self):
         try:
             self.do_work()
+        except BrokenPipeException as e:
+            print("Exception '{name}' came: {val}".format(name = type(e).__name__, val = e.args[0]))
+            self.run()
         except SocketException as e:
             self.error_came.emit(type(e).__name__, e.args[0])
+            self.run()
