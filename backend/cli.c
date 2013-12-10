@@ -262,7 +262,7 @@ static int start_transmission(int transmission_id, const struct sockets_queue *q
         r = TRME_ALLOC_FAILURE;
     } else {
         strncpy(f.file_name, t->filename, FILE_NAME_MAX_LEN);
-        snprintf(fname, st_arr_len(fname), "%s/%s", APP_DIR_PATH, t->filename);
+        snprintf(fname, st_arr_len(fname), "%s/%s", HOME_DIR_PATH, t->filename);
         memcpy(f.hsumm, t->filesum, MD5_DIGEST_LENGTH);
 
         data->data.f_piece = sizeof(data->data.data) / DATA_BLOCK_LEN;

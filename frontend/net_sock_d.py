@@ -89,7 +89,11 @@ class Socket:
             raise ReceiveMessageFailureException()
 
         msg = sock.recv(msglen)
-        print("received: " + msg.decode("utf-8"))                       # TODO: REMOVE ME
+        try:
+            print("received: " + msg.decode("utf-8"))                       # TODO: REMOVE ME
+        except UnicodeDecodeError:
+            print("Package print failure")
+
         if not msg:
             raise RecieveMessageFailureException()
 

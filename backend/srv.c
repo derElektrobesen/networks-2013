@@ -81,13 +81,17 @@ static void get_full_file_path(const char *torrent_path, char *full_name, int ma
             if (!found && strstr(buf, FILE_PATH_FLAG))
                 found = 1;
             else if (found == 1)
-                found++;    /* Пропустить управляющую строку */
-            else {
+                found++;        /* Пропустить управляющую строку */
+            else if (found) {   /* Найдена нужная строка */
                 /* Путь идет от корня. Копируем все что начинается со '/' */
                 ptr = buf;
                 while (*ptr != '/')
                     ptr++;
                 strncpy(full_name, ptr, maxlen);
+                ptr = full_name + strlen(full_name) - 1;
+                while (*ptr == '\n' || *ptr == '\r' || *ptr == ' ')
+                    ptr--;
+                *(ptr + 1) = 0;
             }
         }
         fclose(f);
@@ -223,7 +227,7 @@ static void send_answer(const struct srv_fields *f, int sock) {
     char msg[BUF_MAX_LEN];
 
     char buf[255];
-    char *g_opts[] = {"id"};
+    char *g_opts[] = {"piece_id"};
     char *g_vals[] = {buf};
     int count = 1;
 
@@ -231,6 +235,7 @@ static void send_answer(const struct srv_fields *f, int sock) {
     log_srv_fields(f);
     send_data(sock, msg, msg_len, 0);
 
+    snprintf(buf, sizeof(buf), "%d", f->cli_field.piece_id);
     g_acts->package_sent(g_opts, g_vals, count);
 }
 

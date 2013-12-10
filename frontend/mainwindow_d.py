@@ -77,6 +77,9 @@ class MainWindow(QMainWindow, FormMain):
         srv = subprocess.Popen("SRV", stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, stdin=subprocess.PIPE)
 
+    def on_package_received(self, data):
+        pass
+
     def handle_srv_error(self, class_name, msg = None):
         return self.handle_error(class_name, msg, self.srv)
 
