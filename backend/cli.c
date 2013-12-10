@@ -247,8 +247,7 @@ static struct active_connection *add_connection(int sock, int transmission_id) {
  * В случае ошибки функция возвращает ненулевое значение,
  * которое можно интерпретировать с помощью TRME_* флагов
  */
-static int start_transmission(int transmission_id,
-        const struct sockets_queue *q) {
+static int start_transmission(int transmission_id, const struct sockets_queue *q) {
     int i, req_count;
     int r = 0;
     char fname[FILE_NAME_MAX_LEN];
@@ -511,7 +510,7 @@ static void on_receive_file_gui_act(char **opts_names,
         for (i = 0; i < r / 2; i++) {
             buf[0] = hsum[2 * i];
             buf[1] = hsum[2 * i + 1];
-            hsum[2 * i] = (unsigned char)strtoul(buf, NULL, 16);
+            hsum[i] = (unsigned char)strtoul(buf, NULL, 16);
         }
         r = receive_file(filename, hsum, fsize, q);
         if (r >= 0) {

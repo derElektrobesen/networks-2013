@@ -156,11 +156,13 @@ class MainWindow(QMainWindow, FormMain):
     @pyqtSlot()
     def on_actionStart_transmission_triggered(self):
         key = self.tableView_main.current_row
+        if not key:
+            return
         s = self.transmissions[key]
-        if not s['finished']:
-            s['active'] = 1
-            self.cli_thread.send_message({'action': START_TRM_ACT,
-                'hsum': key, 'filename': s['filename'], 'filesize': str(s['filesize'])})
+        #if not s['finished']:
+        s['active'] = 1
+        self.cli_thread.send_message({'action': START_TRM_ACT,
+            'hsum': key, 'filename': s['filename'], 'filesize': str(s['filesize'])})
 
     @pyqtSlot()
     def on_actionCreate_transmission_triggered(self):

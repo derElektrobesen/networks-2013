@@ -102,7 +102,7 @@ static void get_full_file_path(const char *torrent_path, char *full_name, int ma
 static int search_file(const char *fname, const unsigned char *hsumm,
         char *full_name, int full_name_max_len) {
     int r = 0;
-    char sum[MD5_DIGEST_LENGTH * 2];
+    char sum[MD5_DIGEST_LENGTH * 2 + 1];
     char torrent_file_path[1024];
 
     convert_hex_str(sum, sizeof(sum), hsumm, MD5_DIGEST_LENGTH);
