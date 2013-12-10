@@ -61,7 +61,5 @@ class Thread(QThread):
             self.do_work()
         except BrokenPipeException as e:
             print("Exception '{name}' came: {val}".format(name = type(e).__name__, val = e.args[0]))
-            self.run()
         except SocketException as e:
             self.error_came.emit(type(e).__name__, e.args[0])
-            self.run()
