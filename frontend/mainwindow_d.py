@@ -61,7 +61,9 @@ class MainWindow(QMainWindow, FormMain):
 
         self.transmissions = {}
 
-        self.run_daemons()
+        if ("DAEMONIZE"):
+            self.run_daemons()
+
         self.load_torrents()
 
     def closeEvent(self, e):

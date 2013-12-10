@@ -42,6 +42,8 @@ FRONTEND_HOME = $(shell pwd)/$(F_DIR)
 EXEC_DIR = $(shell pwd)
 FILE_PATH_FLAG = default_size
 
+DAEMONIZE =
+
 PROTO_STRUCT_SIZE = 296
 
 DEFINES =   DEBUG \
@@ -78,7 +80,7 @@ DEFINES =   DEBUG \
 			FILE_PATH_FLAG=\"$(FILE_PATH_FLAG)\" \
 			DONT_DO_SRAND \
 			IDENT=\"course_prj__\" \
-			DAEMONIZE \
+			$(DAEMONIZE) \
 			USE_LOOPBACK
 
 # Unused macro defs
@@ -125,7 +127,8 @@ MAIN_RULES_ = \
 			DOWNLOADS_PATH:$(DOWNLOADS_DIR) \
 			PIECE_LEN:$(PROTO_STRUCT_SIZE) \
 			CLI:$(EXEC_DIR)/$(CLI_TAR) \
-			SRV:$(EXEC_DIR)/$(SRV_TAR)
+			SRV:$(EXEC_DIR)/$(SRV_TAR) \
+			DAEMONIZE:$(DAEMONIZE)
 
 CREATE_RULE = $(shell echo '$1' | perl -e 'my $$r = ""; while (<>) { s/\s+/*/g; $$r .= $$_; } print "$$r"')
 UI_RULES = $(call CREATE_RULE, $(UI_RULES_))

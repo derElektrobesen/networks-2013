@@ -67,6 +67,9 @@
         <property name="readOnly">
          <bool>true</bool>
         </property>
+        <property name="placeholderText">
+         <string>Размер получаемого файла</string>
+        </property>
        </widget>
       </item>
       <item row="2" column="1">
@@ -76,6 +79,9 @@
         </property>
         <property name="readOnly">
          <bool>true</bool>
+        </property>
+        <property name="placeholderText">
+         <string>MD5 сумма получаемого файла</string>
         </property>
        </widget>
       </item>
@@ -132,6 +138,9 @@
         <property name="readOnly">
          <bool>true</bool>
         </property>
+        <property name="placeholderText">
+         <string>Имя получаемого файла</string>
+        </property>
        </widget>
       </item>
      </layout>
@@ -139,6 +148,13 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>name_edit</tabstop>
+  <tabstop>size_edit</tabstop>
+  <tabstop>sum_edit</tabstop>
+  <tabstop>save_btn</tabstop>
+  <tabstop>pushButton</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
