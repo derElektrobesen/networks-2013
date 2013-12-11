@@ -461,27 +461,35 @@ inline static int prepare_broadcast_msg(char *msg, int max_len) {
  * адреса найденных интерфейсов помещаются в параметр ips.
  * Параметры:
  * ips - массив IP адресов найденных интерфейсов;
+ * masks - массив масок для дольнейшего определения broadcast адреса (NULL если не
+ *      используется)
  * max_count - максимальное количество сетевых интерфейсов;
  * use_loopback - ключ использования LOOPBACK (использовать, если значение больше 0).
  */
-static int get_hostIPs(uint32_t *ips, int max_count, int use_loopback) {
+static int get_hostIPs(uint32_t *ips, uint32_t *masks, int max_count, int use_loopback) {
     struct ifaddrs *ifap, *ifa;
-    struct sockaddr_in *addr;
+    struct sockaddr_in *addr, *mask;
     int i = 0, j;
 
     if (getifaddrs(&ifap) == 0) {
         for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-            if ((ifa->ifa_addr->sa_family == AF_INET) && !(use_loopback && (ifa->ifa_flags & IFF_LOOPBACK))) {
+            if ((ifa->ifa_addr->sa_family == AF_INET) &&
+                    (ifa->ifa_flags & IFF_UP) &&
+                    !(use_loopback && (ifa->ifa_flags & IFF_LOOPBACK))) {
                 addr = (struct sockaddr_in *) ifa->ifa_addr;
+                mask = (struct sockaddr_in *) ifa->ifa_netmask;
                 for (j = 0; j != -1 && j < i; j++)
                     if (ips[j] == addr->sin_addr.s_addr)
-                        j = -1;
+                        j = -2;
                 if (j >= 0) {
                     if (i >= max_count) {
                         ifa = NULL;
                         err(BROADCAST, "too many network interfaces found");
-                    } else
+                    } else {
+                        if (masks)
+                            masks[i] = mask->sin_addr.s_addr;
                         ips[i++] = addr->sin_addr.s_addr;
+                    }
                 }
             }
         }
@@ -493,11 +501,11 @@ static int get_hostIPs(uint32_t *ips, int max_count, int use_loopback) {
  * Функция возвращает количество интерфейсов, которые будут
  * использованы  при широковещании.
  * IP адреса помещаются в параметр ips
- * Параметр msx_count указывает максимальное число сетевых интерфейсов.
+ * Параметр max_count указывает максимальное число сетевых интерфейсов.
  */
 static int get_hostIP(char (*ips)[4 * sizeof("000")], int max_count) {
     char ip_addr[4 * sizeof("000")];
-    uint32_t ips_i[MAX_INTERFACES_COUNT];
+    uint32_t ips_i[MAX_INTERFACES_COUNT], masks[MAX_INTERFACES_COUNT], ip;
     unsigned char *addr_ref;
     int count;
     int i;
@@ -505,12 +513,13 @@ static int get_hostIP(char (*ips)[4 * sizeof("000")], int max_count) {
     if (max_count > MAX_INTERFACES_COUNT)
         max_count = MAX_INTERFACES_COUNT;
 
-    count = get_hostIPs(ips_i, max_count, 1);
+    count = get_hostIPs(ips_i, masks, max_count, 1);
     for (i = 0; i < count; i++) {
-        addr_ref = (unsigned char *)&(ips_i[i]);
-        sprintf(ip_addr, "%d.%d.%d.%d",                         // ЧТО ПРОИСХОДИТ ?
+        ip = ips_i[i] | ~masks[i];
+        addr_ref = (unsigned char *)&(ip);
+        sprintf(ip_addr, "%d.%d.%d.%d",
                 addr_ref[0] & 0xff, addr_ref[1] & 0xff,
-                addr_ref[2] & 0xff, 0xff);
+                addr_ref[2] & 0xff, addr_ref[3] & 0xff);
         strcpy(ips[i], ip_addr);
         log(BROADCAST, "broadcast ip: %s", ip_addr);
     }
@@ -568,7 +577,7 @@ static void *broadcast_start(void *arg) {
     msg_len = prepare_broadcast_msg(msg, BUF_MAX_LEN);
     while (1) {
         if (j++ % (LONG_TIMEOUT / SHORT_TIMEOUT) == 0) {
-            ips_i_count = get_hostIPs(ips_i, MAX_INTERFACES_COUNT, 1);
+            ips_i_count = get_hostIPs(ips_i, NULL, MAX_INTERFACES_COUNT, 1);
             if (ips_i_count != ips_count)
                 j = -1;
             else
@@ -732,7 +741,7 @@ static int process_broadcast_servers(int sock, struct sockets_queue *q) {
     if (recvfrom(sock, buf, BUF_MAX_LEN, 0, (struct sockaddr *)(&addr), &addr_len) > 0) {
 #ifndef USE_LOOPBACK
         /** Check detected connection for loopback */
-        ips_count = get_hostIPs(local_ips, MAX_INTERFACES_COUNT, 0);
+        ips_count = get_hostIPs(local_ips, NULL, MAX_INTERFACES_COUNT, 0);
         for (i = 0; !flag && i < ips_count; i++)
             if (local_ips[i] == addr.sin_addr.s_addr)
                 flag = 1;
@@ -930,7 +939,7 @@ inline static void g_##name(char **o, char **v, unsigned int c) { \
 }
 
 define_act(package_sent, PACKAGE_SENT_ACT);
-define_act(package_received, PACKAGE_RECIEVED_ACT);
+define_act(package_received, PACKAGE_RECEIVED_ACT);
 define_act(server_added, SERVER_ADDED_ACT);
 define_act(client_added, CLIENT_ADDED_ACT);
 define_act(server_removed, SERVER_REMOVED_ACT);
