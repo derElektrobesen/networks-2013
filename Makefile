@@ -22,7 +22,7 @@ ACTS = \
 	START_TRM_ACT=\"start_trm\"	\
 	STOP_TRM_ACT=\"stop_trm\" \
 	PACKAGE_SENT_ACT=\"package_sent\" \
-	PACKAGE_RECIEVED_ACT=\"package_received\" \
+	PACKAGE_RECEIVED_ACT=\"package_received\" \
 	SERVER_ADDED_ACT=\"server_added\" \
 	CLIENT_ADDED_ACT=\"client_added\" \
 	SERVER_REMOVED_ACT=\"server_removed\" \
@@ -80,8 +80,7 @@ DEFINES =   DEBUG \
 			FILE_PATH_FLAG=\"$(FILE_PATH_FLAG)\" \
 			DONT_DO_SRAND \
 			IDENT=\"course_prj__\" \
-			$(DAEMONIZE) \
-			USE_LOOPBACK
+			$(DAEMONIZE)
 
 # Unused macro defs
 # PRINT_LINES
@@ -102,7 +101,7 @@ CLI_OBJS = $(CLI_SRCS:%.c=$(O_DIR)/%.o)
 
 FORMS = main_form.ui about_form.ui torrent_form.ui
 F_MAIN_FILE = $(F_DIR)/main.py
-PY_FILES = main statuswidget tablewidget net_sock thread mainwindow otherwindows
+PY_FILES = main statuswidget tablewidget net_sock thread mainwindow otherwindows log
 UIGEN = pyuic4
 UIGEN_EXISTS = $(shell $(UIGEN) --version 2>/dev/null)
 

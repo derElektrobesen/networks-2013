@@ -6,6 +6,8 @@ from PyQt4.QtGui import *
 from forms import FormMain
 from thread import Thread
 
+from log import Logger
+
 from otherwindows import TorrentWindow, AboutWindow
 
 import json
@@ -22,7 +24,7 @@ class MainException(Exception):
     def __init__(self):
         super(eval(self.__class__.__name__), self).__init__()
 
-__ex_classes = "WrongActionException".rstrip().split()
+__ex_classes = "WrongActionException MainError".rstrip().split()
 
 for c in __ex_classes:
     exec("""
@@ -35,6 +37,9 @@ class MainWindow(QMainWindow, FormMain):
     srv = 'server'
     cli = 'client'
 
+    clients = {}
+    servers = {}
+
     def __init__(self):
         QMainWindow.__init__(self)
         self.setupUi(self)
@@ -43,6 +48,17 @@ class MainWindow(QMainWindow, FormMain):
             os.makedirs("DOWNLOADS_PATH")
         if not os.path.exists("TORRENTS_PATH"):
             os.makedirs("TORRENTS_PATH")
+
+        self.actions = {
+            PACKAGE_SENT_ACT: self.on_package_sent_act,
+            PACKAGE_RECEIVED_ACT: self.on_package_received_act,
+            SERVER_ADDED_ACT: self.on_server_added_act,
+            CLIENT_ADDED_ACT: self.on_client_added_act,
+            SERVER_REMOVED_ACT: self.on_server_removed_act,
+            CLIENT_REMOVED_ACT: self.on_client_removed_act,
+            ANSWER_ACT: self.on_answer_act,
+            FILE_RECEIVED_ACT: self.on_file_received_act,
+        }
 
         self.cli_thread = Thread(CLI_SOCK_PATH)
         self.srv_thread = Thread(SRV_SOCK_PATH)
@@ -77,8 +93,56 @@ class MainWindow(QMainWindow, FormMain):
         srv = subprocess.Popen("SRV", stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, stdin=subprocess.PIPE)
 
-    def on_package_received(self, data):
+    # Actions
+    def on_package_sent_act(self, data):
+        Logger.log("Часть #{n} файла '{fname}' была получена с адреса '{ip}'" \
+                .format(ip = self.servers[data['id']], n = data['piece_id'], fname = data['file_name']))
+        print(self.servers)
+        self.servers[data['id']]['sent'] += 1
+        self.tableView_client.set_packs_sent(self.servers[data['id']]['sent'])
+
+    def on_package_received_act(self, data):
+        Logger.log("С адреса '{ip}' была получена часть #{n} файла '{fname}'" \
+                .format(ip = self.clients[data['id']], n = data['piece_id'],
+                        fname = self.transmissions[data['hsum']]['filename']))
+        self.transmissions[data['hsum']]['sent'] += 1
+        self.tableView_main.set_packs_sent(packs = self.transmissions[data['hsum']]['sent'], key = data['hsum'])
+        prc = self.transmissions[data['hsum']]['filesize']
+        prc /= self.transmissions[data['hsum']]['sent'] * PIECE_LEN
+        self.tableView_client.set_perc_sent(prc * 100 if prc < 1 else 100, data['hsum'])
+
+    def on_server_added_act(self, data):
+        Logger.log("Подключен сервер '{ip}'".format(ip = data['ip']))
+        self.servers[data['id']] = {
+            'ip': data['ip'],
+            'sent': 0,
+        }
+        self.tableView_client.add_row(data['ip'])
+
+    def on_client_added_act(self, data):
+        Logger.log("Подключен клиент '{ip}'".format(ip = data['ip']))
+        self.clients[data['id']] = data['ip']
+        # TODO
+
+    def on_server_removed_act(self, data):
+        Logger.log("Сервер '{ip}' отключился".format(ip = self.servers[data['id']]))
+        self.tableView_client.remove_row(self.servers[data['id']]['ip'])
+        del self.servers[data['id']]
+
+    def on_client_removed_act(self, data):
+        Logger.log("Клиент '{ip}' отключился".format(ip = self.clients[data['id']]))
+        del self.clients[data['id']]
+        # TODO
+
+    def on_answer_act(self, data):
         pass
+
+    def on_file_received_act(self, data):
+        struct = self.transmissions[data['hsum']]
+        self.create_torrent_file(struct['filename'], struct['filesize'],
+            data['hsum'], "DOWNLOADS_PATH/" + struct['filename'])
+        del self.transmissions[data['hsum']]
+        self.load_torrent(fname = "TORRENTS_PATH/" + data['hsum'])
 
     def handle_srv_error(self, class_name, msg = None):
         return self.handle_error(class_name, msg, self.srv)
@@ -108,7 +172,7 @@ class MainWindow(QMainWindow, FormMain):
 
     def __handle_backend_message(self, msg, sender = None):
         data = json.loads(msg, encoding='utf-8')
-        # TODO
+        return self.actions[data['action']](data)
 
     def load_torrent(self, fname = None, sent = -1, hsum = None, filename = None, filesize = None):
         if fname:
@@ -162,10 +226,10 @@ class MainWindow(QMainWindow, FormMain):
         if not key:
             return
         s = self.transmissions[key]
-        #if not s['finished']:
-        s['active'] = 1
-        self.cli_thread.send_message({'action': START_TRM_ACT,
-            'hsum': key, 'filename': s['filename'], 'filesize': str(s['filesize'])})
+        if not s['finished']:
+            s['active'] = 1
+            self.cli_thread.send_message({'action': START_TRM_ACT,
+                'hsum': key, 'filename': s['filename'], 'filesize': str(s['filesize'])})
 
     @pyqtSlot()
     def on_actionCreate_transmission_triggered(self):

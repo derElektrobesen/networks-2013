@@ -48,6 +48,13 @@ class TableWidget(QTableView):
                 break
         return k
 
+    def change_row(self, col_index, row_index = -1, row_key = '', data = ''):
+        if row_index == -1 and row_key == '':
+            raise ValueError("Incorrect params given: row_index or row_key are expected")
+        if row_key:
+            row_index = self.__keys[row_key].row()
+        self.__model.item(row_index, col_index).setText(data)
+
     @property
     def current_row(self):
         return self.__cur_row
@@ -75,11 +82,29 @@ class MainTable(TableWidget):
             packs / sent * 100 if sent != 0 else 0], hsum)
         self.set_sort_role(0)
 
+    def set_speed(self, speed, key):
+        super(MainTable, self).change_row(1, row_key = key, data = str(speed))
+
+    def set_packs_sent(self, packs, key):
+        super(MainTable, self).change_row(3, row_key = key, data = str(packs))
+
+    def set_perc_sent(self, perc, key):
+        super(MainTable, self).change_row(4, row_key = key, data = str(perc))
+
 class ClientTable(TableWidget):
     def __init__(self, parent = None):
         cols = ['Адресат', 'Скорость (кб/с)', 'Пакетов получено']
         super(ClientTable, self).__init__(parent, cols)
         self.set_sort_role(0)
+
+    def add_row(self, ip):
+        super(ClientTable, self).add_row([ip, 0, 0], ip)
+
+    def set_packs_sent(self, packs, ip):
+        super(ClientTable, self).change_row(2, row_key = ip, data = str(packs))
+
+    def set_speed(self, speed, ip):
+        super(ClientTable, self).change_row(1, row_key = ip, data = str(speed))
 
 class ServerTable(TableWidget):
     def __init__(self, parent = None):

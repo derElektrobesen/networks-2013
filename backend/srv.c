@@ -226,16 +226,17 @@ static void send_answer(const struct srv_fields *f, int sock) {
     int msg_len;
     char msg[BUF_MAX_LEN];
 
-    char buf[255];
-    char *g_opts[] = {"piece_id"};
-    char *g_vals[] = {buf};
-    int count = 1;
+    char buf[255], id_buf[10];
+    char *g_opts[] = {"piece_id", "file_name", "id"};
+    char *g_vals[] = {buf, (char *)f->cli_field.file_name, id_buf};
+    int count = 3;
 
     msg_len = decode_srv_msg(f, msg);
     log_srv_fields(f);
     send_data(sock, msg, msg_len, 0);
 
     snprintf(buf, sizeof(buf), "%d", f->cli_field.piece_id);
+    snprintf(id_buf, sizeof(id_buf), "%d", sock);
     g_acts->package_sent(g_opts, g_vals, count);
 }
 

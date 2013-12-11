@@ -415,9 +415,9 @@ static void process_received_piece(const struct srv_fields *f,
     struct pieces_queue *p;
     char err_msg[255];
 
-    char buf[255], piece_buf[255], id_buf[255];
-    char *g_opts[] = {"trmid", "piece_id", "id"};
-    char *g_vals[] = {buf, piece_buf, id_buf};
+    char piece_buf[10], hsum_buf[2 * MD5_DIGEST_LENGTH + 1], id_buf[10];
+    char *g_opts[] = {"hsum", "piece_id", "id"};
+    char *g_vals[] = {hsum_buf, piece_buf, id_buf};
     int count = 3;
 
     con->status = SRV_READY;
@@ -428,7 +428,7 @@ static void process_received_piece(const struct srv_fields *f,
         p->failed_pieces[++(p->max_failed_piece_num)] = f->cli_field.piece_id;
         remove_connection(con);
     } else {
-        snprintf(buf, sizeof(buf), "%d", con->transmission_id);
+        convert_hex_str(hsum_buf, sizeof(hsum_buf), f->cli_field.hsumm, MD5_DIGEST_LENGTH);
         snprintf(piece_buf, sizeof(piece_buf), "%d", con->piece_id);
         snprintf(id_buf, sizeof(id_buf), "%d", con->srv_sock);
         g_acts->package_received(g_opts, g_vals, count);
@@ -436,7 +436,7 @@ static void process_received_piece(const struct srv_fields *f,
         con->file_id = f->cli_field.file_id;
         push_file_data(con->data, f, t);
         if (flush_file_data(con->data, t->file, t->pieces.max_piece_num, t)) {
-            g_acts->file_received(g_opts, g_vals, 1);   /* trmid only */
+            g_acts->file_received(g_opts, g_vals, 1);   /* hsum only */
             remove_transmission(con->transmission_id);
         }
     }
