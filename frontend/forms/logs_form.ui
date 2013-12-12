@@ -1,64 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <author>Pavel Berezhnoy</author>
- <class>FormAbout</class>
- <widget class="QWidget" name="FormAbout">
-  <property name="windowModality">
-   <enum>Qt::ApplicationModal</enum>
-  </property>
+ <class>LogsForm</class>
+ <widget class="QWidget" name="LogsForm">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>330</width>
-    <height>91</height>
+    <width>574</width>
+    <height>431</height>
    </rect>
   </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>330</width>
-    <height>80</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>350</width>
-    <height>120</height>
-   </size>
-  </property>
   <property name="windowTitle">
-   <string>Разработчики</string>
+   <string>История</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="spacing">
-    <number>1</number>
-   </property>
-   <property name="leftMargin">
-    <number>1</number>
-   </property>
-   <property name="topMargin">
+   <property name="bottomMargin">
     <number>3</number>
    </property>
-   <property name="rightMargin">
-    <number>1</number>
-   </property>
-   <property name="bottomMargin">
-    <number>1</number>
-   </property>
    <item>
-    <widget class="QPlainTextEdit" name="plainTextEdit">
+    <widget class="QPlainTextEdit" name="log_edit">
      <property name="readOnly">
       <bool>true</bool>
      </property>
-     <property name="plainText">
-      <string>Бережной П.Ю. (pberejnoy2005@gmail.com)
-Джумагулов Б.С. (bakitds@gmail.com)</string>
+     <property name="tabStopWidth">
+      <number>40</number>
+     </property>
+     <property name="cursorWidth">
+      <number>0</number>
      </property>
     </widget>
    </item>
@@ -80,6 +48,9 @@
       </item>
       <item>
        <widget class="QPushButton" name="pushButton">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Закрыть</string>
         </property>
@@ -95,16 +66,16 @@
   <connection>
    <sender>pushButton</sender>
    <signal>clicked()</signal>
-   <receiver>FormAbout</receiver>
+   <receiver>LogsForm</receiver>
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>285</x>
-     <y>73</y>
+     <x>521</x>
+     <y>405</y>
     </hint>
     <hint type="destinationlabel">
-     <x>164</x>
-     <y>45</y>
+     <x>286</x>
+     <y>215</y>
     </hint>
    </hints>
   </connection>

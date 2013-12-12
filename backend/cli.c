@@ -420,8 +420,8 @@ static void process_received_piece(const struct srv_fields *f,
     char piece_buf[10], hsum_buf[2 * MD5_DIGEST_LENGTH + 1], id_buf[10];
     char *g_opts[] = {"hsum", "piece_id", "id"};
     char *g_vals[] = {hsum_buf, piece_buf, id_buf};
-    char *e_opts[] = {"error", "result", "hsum"};
-    char *e_vals[] = {FILE_RECEIVING_FAILURE, "-1", hsum_buf};
+    char *e_opts[] = {"act", "error", "result", "hsum"};
+    char *e_vals[] = {"failure", FILE_RECEIVING_FAILURE, "-1", hsum_buf};
     int count = 3;
 
     con->status = SRV_READY;
@@ -432,7 +432,7 @@ static void process_received_piece(const struct srv_fields *f,
         p = &(t->pieces);
         p->failed_pieces[++(p->max_failed_piece_num)] = f->cli_field.piece_id;
         if (!remove_connection(con))
-            g_acts->answer(e_opts, e_vals, 2);  /* Receiving failure */
+            g_acts->answer(e_opts, e_vals, 4);  /* Receiving failure */
     } else {
         snprintf(piece_buf, sizeof(piece_buf), "%d", con->piece_id);
         snprintf(id_buf, sizeof(id_buf), "%d", con->srv_sock);
@@ -494,18 +494,19 @@ static void on_receive_file_gui_act(char **opts_names,
     unsigned char *hsum = NULL;
     unsigned long fsize = 0;
     unsigned int i;
-    char buf[255], pieces_buf[255];
-    char *r_opts_names[] = {"result", "error", "pieces_count"};
-    char *r_opts_vals[] = {"-1", buf, pieces_buf};
-    int count = 2;
+    char buf[255], pieces_buf[255], hsum_buf[2 * MD5_DIGEST_LENGTH + 1];
+    char *r_opts_names[] = {"act", "result", "hsum", "error", "pieces_count"};
+    char *r_opts_vals[] = {START_TRM_ACT, "-1", hsum_buf, buf, pieces_buf};
+    int count = 4;
     int r;
 
     for (i = 0; i < opts_count && !(filename && hsum && fsize); i++) {
         if (!filename && strcmp("filename", opts_names[i]) == 0)
             filename = opts_values[i];
-        else if (!hsum && strcmp("hsum", opts_names[i]) == 0)
+        else if (!hsum && strcmp("hsum", opts_names[i]) == 0) {
             hsum = (unsigned char *)opts_values[i];
-        else if (!fsize && strcmp("filesize", opts_names[i]) == 0)
+            strncpy(hsum_buf, opts_values[i], sizeof(hsum_buf));
+        } else if (!fsize && strcmp("filesize", opts_names[i]) == 0)
             fsize = strtoul(opts_values[i], NULL, 0);
     }
 
@@ -521,9 +522,9 @@ static void on_receive_file_gui_act(char **opts_names,
         if (r >= 0) {
             snprintf(buf, sizeof(buf), "%d", r);
             snprintf(pieces_buf, sizeof(pieces_buf), "%d", t_descr.trm[r].pieces.max_piece_num);
-            r_opts_vals[0] = "0";
-            r_opts_names[1] = "trmid";
-            count = 3;
+            r_opts_vals[1] = "0";
+            r_opts_names[3] = "trmid";
+            count = 5;
             log(CLIENT, "transmission %d had been started", r);
         } else
             err_to_str(r, buf, sizeof(buf));
@@ -543,20 +544,23 @@ static void on_stop_file_receiving_gui_act(char **opts_names,
         char **opts_values, unsigned int opts_count, const struct sockets_queue *q) {
     int trmid = -1;
     char buf[255];
-    char *r_opts_names[] = {"result", "error"};
-    char *r_opts_vals[] = {"0", buf};
-    int count = 1;  /* result == 0 */
+    char *r_opts_names[] = {"act", "result", "hsum", "error"};
+    char *r_opts_vals[] = {STOP_TRM_ACT, "0", "unknown", buf};
+    int count = 3;  /* result == 0 */
     unsigned int i = 0;
 
-    for (i = 0; i < opts_count && trmid < 0; i++)
+    for (i = 0; i < opts_count && trmid < 0; i++) {
         if (strcmp("trmid", opts_names[i]) == 0)
             trmid = atoi(opts_values[i]);
+        else if (strcmp("hsum", opts_names[i]) == 0)
+            r_opts_vals[2] = opts_values[i];
+    }
     if (trmid < 0) {
         err(CLIENT, "an error occurred while trying to stop the file transmisson: 'trmid' "
                 "option is required");
         err_to_str(TRME_OPTS_FAILURE, buf, sizeof(buf));
-        count = 2;  /* error */
-        r_opts_vals[0] = "-1";
+        count = 4;  /* error */
+        r_opts_vals[1] = "-1";
     } else {
         remove_transmission(trmid);
         log(CLIENT, "transmission %d removed successfully", trmid);
@@ -570,8 +574,8 @@ static void on_stop_file_receiving_gui_act(char **opts_names,
  */
 static void on_terminate_gui_act(char **opts_names,
         char **opts_values, unsigned int opts_count, const struct sockets_queue *q) {
-    char *r_opts_names[] = {"result"};
-    char *r_opts_vals[] = {"0"};
+    char *r_opts_names[] = {"result", "act"};
+    char *r_opts_vals[] = {"0", TERMINATE_ACT};
     int i;
 
     for (i = 0; i < st_arr_len(t_descr.openned_trms) || i < q->count; i++) {
@@ -580,7 +584,7 @@ static void on_terminate_gui_act(char **opts_names,
         if (i < q->count)
             close(q->sockets[i]);
     }
-    g_acts->answer(r_opts_names, r_opts_vals, 1);
+    g_acts->answer(r_opts_names, r_opts_vals, 2);
 
     exit(0);    /* terminate */
 }

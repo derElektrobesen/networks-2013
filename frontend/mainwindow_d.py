@@ -8,7 +8,7 @@ from thread import Thread
 
 from log import Logger
 
-from otherwindows import TorrentWindow, AboutWindow
+from otherwindows import TorrentWindow, AboutWindow, LogsWindow
 
 import json
 import hashlib
@@ -16,6 +16,7 @@ import ntpath
 import pickle
 import glob
 import math
+import random
 
 import os
 import subprocess
@@ -39,6 +40,8 @@ class MainWindow(QMainWindow, FormMain):
 
     clients = {}
     servers = {}
+
+    downloaded_color = QColor(0xe2, 0xf5, 0xff)
 
     def __init__(self):
         QMainWindow.__init__(self)
@@ -103,19 +106,22 @@ class MainWindow(QMainWindow, FormMain):
 
     def on_package_received_act(self, data):
         Logger.log("С адреса '{ip}' была получена часть #{n} файла '{fname}'" \
-                .format(ip = self.servers[data['id']], n = data['piece_id'],
+                .format(ip = self.servers[data['id']]['ip'], n = data['piece_id'],
                         fname = self.transmissions[data['hsum']]['filename']))
         self.transmissions[data['hsum']]['sent'] += 1
         self.tableView_main.set_packs_sent(packs = self.transmissions[data['hsum']]['sent'], key = data['hsum'])
         prc = self.transmissions[data['hsum']]['filesize']
         prc = self.transmissions[data['hsum']]['sent'] * PIECE_LEN / prc
         self.tableView_main.set_perc_sent(prc * 100 if prc < 1 else 100.0, data['hsum'])
+        self.statusWidget.add_line(data['hsum'], data['piece_id'],
+                self.servers[data['id']]['color'])
 
     def on_server_added_act(self, data):
         Logger.log("Подключен сервер '{ip}'".format(ip = data['ip']))
         self.servers[data['id']] = {
             'ip': data['ip'],
             'sent': 0,
+            'color': QColor.fromHsv(random.randint(0, 359), 220, 190),
         }
         self.tableView_client.add_row(data['ip'])
 
@@ -125,7 +131,7 @@ class MainWindow(QMainWindow, FormMain):
         # TODO
 
     def on_server_removed_act(self, data):
-        Logger.log("Сервер '{ip}' отключился".format(ip = self.servers[data['id']]))
+        Logger.log("Сервер '{ip}' отключился".format(ip = self.servers[data['id']]['ip']))
         self.tableView_client.remove_row(self.servers[data['id']]['ip'])
         del self.servers[data['id']]
 
@@ -135,13 +141,22 @@ class MainWindow(QMainWindow, FormMain):
         # TODO
 
     def on_answer_act(self, data):
-        r = data['result']
+        r = int(data['result'])
         text = ''
-        if r != '0':
+        if r != 0:
             text = ": возникла ошибка {e}".format(e = data['error'])
             if data['error'] == FILE_RECEIVING_FAILURE:
                 self.on_actionStop_transmission_triggered(data['hsum'])
         Logger.log("Результат выполнения операции: {r}{text}".format(r = r, text = text))
+
+        if 'act' in data and 'hsum' in data:
+            trm = self.transmissions[data['hsum']]
+            if (data['act'] == STOP_TRM_ACT and r == 0) or (data['act'] == START_TRM_ACT and r != 0):
+                trm['sent'] = trm['active'] = trm['finished'] = 0
+            elif data['act'] == START_TRM_ACT:
+                trm['trmid'] = data['trmid']
+                trm['active'] = 1
+            self.on_main_table_row_changed(data['hsum'])
 
     def on_file_received_act(self, data):
         s = data['hsum']
@@ -198,21 +213,26 @@ class MainWindow(QMainWindow, FormMain):
         save = {}
         if type(filesize) != int:
             filesize = int(filesize)
-        if add_row:
-            self.tableView_main.add_row(
-                hsum = hsum,
-                name = filename,
-                packs = math.ceil(filesize / PIECE_LEN),
-                sent = sent)
+        pieces_count = math.ceil(filesize / PIECE_LEN)
+
         save['filename'] = filename
         save['filesize'] = filesize
         save['active'] = 0
+        self.statusWidget.init_elem(hsum, pieces_count)
         if (sent == -1):
             save['finished'] = 1
+            self.statusWidget.add_rect(hsum, 0, pieces_count - 1, self.downloaded_color)
         else:
             save['finished'] = 0
             save['sent'] = sent
         self.transmissions[hsum] = save
+
+        if add_row:
+            self.tableView_main.add_row(
+                hsum = hsum,
+                name = filename,
+                packs = pieces_count,
+                sent = sent)
 
     def load_torrents(self):
         for fname in glob.glob("TORRENTS_PATH/*"):
@@ -235,18 +255,22 @@ class MainWindow(QMainWindow, FormMain):
             return
         s = self.transmissions[key]
         if not s['finished']:
-            s['active'] = 1
+            Logger.log("Отправлен запрос на получение файла {name}" \
+                .format(name = s['filename']))
             self.cli_thread.send_message({'action': START_TRM_ACT,
                 'hsum': key, 'filename': s['filename'], 'filesize': str(s['filesize'])})
-            self.on_main_table_row_changed(key)
 
     @pyqtSlot()
     def on_actionCreate_transmission_triggered(self):
         fname = QFileDialog.getOpenFileName(self, 'Open file to create a torrent', '~')
         if fname:
             hsum = hashlib.md5(open(fname, "rb").read()).hexdigest()
-            self.create_torrent_file(ntpath.basename(fname), os.path.getsize(fname), hsum, fname)
-            self.load_torrent(fname = "TORRENTS_PATH/" + hsum)
+            if not os.path.exists("TORRENTS_PATH/" + hsum):
+                self.create_torrent_file(ntpath.basename(fname), os.path.getsize(fname), hsum, fname)
+                self.load_torrent(fname = "TORRENTS_PATH/" + hsum)
+            else:
+                QMessageBox.information(self, 'Ошибка',
+                    'Торрент файл уже существует', QMessageBox.Ok)
 
     @pyqtSlot()
     def on_actionRemove_transmission_triggered(self):
@@ -267,8 +291,15 @@ class MainWindow(QMainWindow, FormMain):
         if not key:
             key = self.tableView_main.current_row
         s = self.transmissions[key]
-        self.cli_thread.send_message({'action': STOP_TRM_ACT,
-            'filename': s['filename'], 'hsum': key, 'filesize': str(s['filesize'])})
+        if s['active']:
+            Logger.log("Отправлен запрос на остановку получения файла {name}" \
+                .format(name = s['filename']))
+            self.cli_thread.send_message({'action': STOP_TRM_ACT, 'filename': s['filename'],
+                'hsum': key, 'filesize': str(s['filesize']), 'trmid': s['trmid']})
+            self.transmissions[key]['active'] = 0
+            self.statusWidget.remove_lines(key)
+            self.on_main_table_row_changed(key)
+            s['active'] = s['finished'] = s['sent'] = 0
 
     @pyqtSlot('QString')
     def on_main_table_row_changed(self, key):
@@ -279,6 +310,7 @@ class MainWindow(QMainWindow, FormMain):
             self.actionStop_transmission.setEnabled(False)
             self.actionStart_transmission.setEnabled(True)
         self.actionRemove_transmission.setEnabled(True)
+        self.statusWidget.current_elem = key
 
     @pyqtSlot('QString')
     def on_row_double_clicked(self, key):
@@ -298,6 +330,17 @@ class MainWindow(QMainWindow, FormMain):
         form.name_edit.setReadOnly(False)
         form.save_btn.clicked.connect(self.add_remote_torrent)
         self.current_torrent_form = form
+        form.show()
+
+    @pyqtSlot()
+    def on_action_showLogs_triggered(self):
+        form = LogsWindow(self)
+        form.set_logs(Logger.get_log())
+        form.show()
+
+    @pyqtSlot()
+    def on_actionAbout_triggered(self):
+        form = AboutWindow(self)
         form.show()
 
     @pyqtSlot(QEvent)

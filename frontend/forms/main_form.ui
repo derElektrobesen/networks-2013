@@ -263,6 +263,8 @@
     <property name="title">
      <string>Справка</string>
     </property>
+    <addaction name="action_showLogs"/>
+    <addaction name="separator"/>
     <addaction name="actionAbout"/>
    </widget>
    <addaction name="menuMenu"/>
@@ -374,6 +376,11 @@
   <action name="actionAdd_torrent">
    <property name="text">
     <string>Добавить торрент файл</string>
+   </property>
+  </action>
+  <action name="action_showLogs">
+   <property name="text">
+    <string>История</string>
    </property>
   </action>
  </widget>

@@ -100,7 +100,7 @@ SRV_OBJS = $(SRV_SRCS:%.c=$(O_DIR)/%.o)
 CLI_SRCS = cli.c
 CLI_OBJS = $(CLI_SRCS:%.c=$(O_DIR)/%.o)
 
-FORMS = main_form.ui about_form.ui torrent_form.ui
+FORMS = main_form.ui about_form.ui torrent_form.ui logs_form.ui
 F_MAIN_FILE = $(F_DIR)/main.py
 PY_FILES = main statuswidget tablewidget net_sock thread mainwindow otherwindows log
 UIGEN = pyuic4

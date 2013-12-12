@@ -32,6 +32,14 @@ class TableWidget(QTableView):
         self.__keys[key] = rrow[0]
         self.__model.appendRow(rrow)
         self.__model.sort(self.__model.sortRole())
+        if not self.__cur_row:
+            self.select_row(0)
+
+    def select_row(self, row_index):
+        self.selectionModel().select(QItemSelection(
+                self.__model.item(row_index, 0).index(),
+                self.__model.item(row_index, self.__model.columnCount() - 1).index()),
+                QItemSelectionModel.Select)
 
     def remove_row(self, key):
         self.__model.takeRow(self.__keys[key].index().row())

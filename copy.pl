@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 use Storable;
+use File::Basename;
 
 my $HELP = <<HELP;
     copy.pl -- copy current git repo into remote host
@@ -77,5 +78,13 @@ unless (@files) {
     }
 }
 
-system "scp", "-i", $params{ident}, @files, "$params{user}\@$params{hostname}:$params{dest_dir}";
-system "ssh", "-i", $params{ident}, "$params{user}\@$params{hostname}", "cd $params{dest_dir}; make clean all";
+my %dirs;
+for (@files) {
+    push @{$dirs{dirname $_}}, $_;
+}
+
+for (keys %dirs) {
+    print "\nscp -i $params{ident} @{$dirs{$_}} $params{user}\@$params{hostname}:$params{dest_dir}/$_\n";
+    system "scp", "-i", $params{ident}, @{$dirs{$_}}, "$params{user}\@$params{hostname}:$params{dest_dir}/$_";
+}
+system "ssh", "-i", $params{ident}, "$params{user}\@$params{hostname}", "cd $params{dest_dir}; make";
