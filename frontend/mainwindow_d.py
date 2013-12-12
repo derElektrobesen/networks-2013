@@ -76,6 +76,7 @@ class MainWindow(QMainWindow, FormMain):
         self.tableView_main.rowDoubleClicked.connect(self.on_row_double_clicked)
 
         self.transmissions = {}
+        self.expected_response = 0
 
         if ("DAEMONIZE"):
             self.run_daemons()
@@ -95,21 +96,20 @@ class MainWindow(QMainWindow, FormMain):
 
     # Actions
     def on_package_sent_act(self, data):
-        Logger.log("Часть #{n} файла '{fname}' была получена с адреса '{ip}'" \
+        Logger.log("Часть #{n} файла '{fname}' была отправлена на адрес '{ip}'" \
                 .format(ip = self.servers[data['id']], n = data['piece_id'], fname = data['file_name']))
-        print(self.servers)
         self.servers[data['id']]['sent'] += 1
         self.tableView_client.set_packs_sent(self.servers[data['id']]['sent'])
 
     def on_package_received_act(self, data):
         Logger.log("С адреса '{ip}' была получена часть #{n} файла '{fname}'" \
-                .format(ip = self.clients[data['id']], n = data['piece_id'],
+                .format(ip = self.servers[data['id']], n = data['piece_id'],
                         fname = self.transmissions[data['hsum']]['filename']))
         self.transmissions[data['hsum']]['sent'] += 1
         self.tableView_main.set_packs_sent(packs = self.transmissions[data['hsum']]['sent'], key = data['hsum'])
         prc = self.transmissions[data['hsum']]['filesize']
-        prc /= self.transmissions[data['hsum']]['sent'] * PIECE_LEN
-        self.tableView_client.set_perc_sent(prc * 100 if prc < 1 else 100, data['hsum'])
+        prc = self.transmissions[data['hsum']]['sent'] * PIECE_LEN / prc
+        self.tableView_main.set_perc_sent(prc * 100 if prc < 1 else 100.0, data['hsum'])
 
     def on_server_added_act(self, data):
         Logger.log("Подключен сервер '{ip}'".format(ip = data['ip']))
@@ -135,14 +135,20 @@ class MainWindow(QMainWindow, FormMain):
         # TODO
 
     def on_answer_act(self, data):
-        pass
+        r = data['result']
+        text = ''
+        if r != '0':
+            text = ": возникла ошибка {e}".format(e = data['error'])
+            if data['error'] == FILE_RECEIVING_FAILURE:
+                self.on_actionStop_transmission_triggered(data['hsum'])
+        Logger.log("Результат выполнения операции: {r}{text}".format(r = r, text = text))
 
     def on_file_received_act(self, data):
-        struct = self.transmissions[data['hsum']]
+        s = data['hsum']
+        struct = self.transmissions[s]
         self.create_torrent_file(struct['filename'], struct['filesize'],
-            data['hsum'], "DOWNLOADS_PATH/" + struct['filename'])
-        del self.transmissions[data['hsum']]
-        self.load_torrent(fname = "TORRENTS_PATH/" + data['hsum'])
+            data['hsum'], "DOWNLOADS_PATH/" + struct['filename'], add_row = False)
+        self.load_torrent(fname = "TORRENTS_PATH/" + s)
 
     def handle_srv_error(self, class_name, msg = None):
         return self.handle_error(class_name, msg, self.srv)
@@ -174,7 +180,8 @@ class MainWindow(QMainWindow, FormMain):
         data = json.loads(msg, encoding='utf-8')
         return self.actions[data['action']](data)
 
-    def load_torrent(self, fname = None, sent = -1, hsum = None, filename = None, filesize = None):
+    def load_torrent(self, fname = None, sent = -1, hsum = None, filename = None,
+            filesize = None, add_row = True):
         if fname:
             with open(fname, "rb") as f:
                 struct = pickle.load(f)
@@ -191,11 +198,12 @@ class MainWindow(QMainWindow, FormMain):
         save = {}
         if type(filesize) != int:
             filesize = int(filesize)
-        self.tableView_main.add_row(
-            hsum = hsum,
-            name = filename,
-            packs = math.ceil(filesize / PIECE_LEN),
-            sent = sent)
+        if add_row:
+            self.tableView_main.add_row(
+                hsum = hsum,
+                name = filename,
+                packs = math.ceil(filesize / PIECE_LEN),
+                sent = sent)
         save['filename'] = filename
         save['filesize'] = filesize
         save['active'] = 0
@@ -230,6 +238,7 @@ class MainWindow(QMainWindow, FormMain):
             s['active'] = 1
             self.cli_thread.send_message({'action': START_TRM_ACT,
                 'hsum': key, 'filename': s['filename'], 'filesize': str(s['filesize'])})
+            self.on_main_table_row_changed(key)
 
     @pyqtSlot()
     def on_actionCreate_transmission_triggered(self):
@@ -254,8 +263,9 @@ class MainWindow(QMainWindow, FormMain):
         del self.transmissions[key]
 
     @pyqtSlot()
-    def on_actionStop_transmission_triggered(self):
-        key = self.tableView_main.current_row
+    def on_actionStop_transmission_triggered(self, key = None):
+        if not key:
+            key = self.tableView_main.current_row
         s = self.transmissions[key]
         self.cli_thread.send_message({'action': STOP_TRM_ACT,
             'filename': s['filename'], 'hsum': key, 'filesize': str(s['filesize'])})

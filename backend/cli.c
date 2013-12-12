@@ -174,8 +174,9 @@ inline static struct active_connection *free_con_ptr(struct active_connection *q
 /**
  * Ф-ия удаляет соединение (на случай ошибки на стороне сервера) из
  * списка
+ * Возвращает 1 если в списке еще остались соединения и 0 иначе
  */
-static void remove_connection(struct active_connection *c) {
+static int remove_connection(struct active_connection *c) {
     int f = 0;
     struct active_connection *q = q_descr.q_head;
 
@@ -191,6 +192,7 @@ static void remove_connection(struct active_connection *c) {
         free(c->data);
     }
     free_con_ptr(c);
+    return f;
 }
 
 /**
@@ -418,17 +420,20 @@ static void process_received_piece(const struct srv_fields *f,
     char piece_buf[10], hsum_buf[2 * MD5_DIGEST_LENGTH + 1], id_buf[10];
     char *g_opts[] = {"hsum", "piece_id", "id"};
     char *g_vals[] = {hsum_buf, piece_buf, id_buf};
+    char *e_opts[] = {"error", "result", "hsum"};
+    char *e_vals[] = {FILE_RECEIVING_FAILURE, "-1", hsum_buf};
     int count = 3;
 
     con->status = SRV_READY;
+    convert_hex_str(hsum_buf, sizeof(hsum_buf), f->cli_field.hsumm, MD5_DIGEST_LENGTH);
     if (f->cli_field.file_id < 0) {
         decode_proto_error(f->cli_field.error, err_msg, st_arr_len(err_msg));
         err(CLIENT, "transmission failure: %s", err_msg);
         p = &(t->pieces);
         p->failed_pieces[++(p->max_failed_piece_num)] = f->cli_field.piece_id;
-        remove_connection(con);
+        if (!remove_connection(con))
+            g_acts->answer(e_opts, e_vals, 2);  /* Receiving failure */
     } else {
-        convert_hex_str(hsum_buf, sizeof(hsum_buf), f->cli_field.hsumm, MD5_DIGEST_LENGTH);
         snprintf(piece_buf, sizeof(piece_buf), "%d", con->piece_id);
         snprintf(id_buf, sizeof(id_buf), "%d", con->srv_sock);
         g_acts->package_received(g_opts, g_vals, count);

@@ -89,7 +89,7 @@ class MainTable(TableWidget):
         super(MainTable, self).change_row(3, row_key = key, data = str(packs))
 
     def set_perc_sent(self, perc, key):
-        super(MainTable, self).change_row(4, row_key = key, data = str(perc))
+        super(MainTable, self).change_row(4, row_key = key, data = "%.1f" % perc)
 
 class ClientTable(TableWidget):
     def __init__(self, parent = None):
