@@ -17,6 +17,7 @@ import pickle
 import glob
 import math
 import random
+import time
 
 import os
 import subprocess
@@ -77,6 +78,10 @@ class MainWindow(QMainWindow, FormMain):
 
         self.tableView_main.rowSelected.connect(self.on_main_table_row_changed)
         self.tableView_main.rowDoubleClicked.connect(self.on_row_double_clicked)
+
+        self.timer = QTimer(self)
+        self.connect(self.timer, SIGNAL("timeout()"), self.update_speed)
+        self.timer.start(1000)
 
         self.transmissions = {}
         self.expected_response = 0
@@ -149,7 +154,7 @@ class MainWindow(QMainWindow, FormMain):
                 self.on_actionStop_transmission_triggered(data['hsum'])
         Logger.log("Результат выполнения операции: {r}{text}".format(r = r, text = text))
 
-        if 'act' in data and 'hsum' in data:
+        if 'act' in data and 'hsum' in data and data['hsum'] in self.transmissions:
             trm = self.transmissions[data['hsum']]
             if (data['act'] == STOP_TRM_ACT and r == 0) or (data['act'] == START_TRM_ACT and r != 0):
                 trm['sent'] = trm['active'] = trm['finished'] = 0
@@ -162,8 +167,12 @@ class MainWindow(QMainWindow, FormMain):
         s = data['hsum']
         struct = self.transmissions[s]
         self.create_torrent_file(struct['filename'], struct['filesize'],
-            data['hsum'], "DOWNLOADS_PATH/" + struct['filename'], add_row = False)
-        self.load_torrent(fname = "TORRENTS_PATH/" + s)
+            data['hsum'], "DOWNLOADS_PATH/" + struct['filename'])
+        self.load_torrent(fname = "TORRENTS_PATH/" + s, add_row = False)
+        struct['sent'] = -1
+        struct['active'] = 0
+        struct['finished'] = 1
+        self.on_main_table_row_changed(s)
 
     def handle_srv_error(self, class_name, msg = None):
         return self.handle_error(class_name, msg, self.srv)
@@ -205,34 +214,34 @@ class MainWindow(QMainWindow, FormMain):
                 else:
                     sent = 0
                 return self.load_torrent(sent = sent, hsum = struct['hsum'],
-                        filename = struct['filename'], filesize = struct['filesize'])
+                        filename = struct['filename'], filesize = struct['filesize'],
+                        add_row = add_row)
 
         if not os.path.isfile("TORRENTS_PATH/" + hsum):
             self.create_torrent_file(filename, filesize, hsum)
 
-        save = {}
         if type(filesize) != int:
             filesize = int(filesize)
         pieces_count = math.ceil(filesize / PIECE_LEN)
 
-        save['filename'] = filename
-        save['filesize'] = filesize
-        save['active'] = 0
-        self.statusWidget.init_elem(hsum, pieces_count)
+        save = {
+            'filename': filename,
+            'filesize': filesize,
+            'active': 0,
+            'sent': sent,
+            'last_index': sent,
+        }
         if (sent == -1):
             save['finished'] = 1
-            self.statusWidget.add_rect(hsum, 0, pieces_count - 1, self.downloaded_color)
         else:
             save['finished'] = 0
-            save['sent'] = sent
         self.transmissions[hsum] = save
 
         if add_row:
-            self.tableView_main.add_row(
-                hsum = hsum,
-                name = filename,
-                packs = pieces_count,
-                sent = sent)
+            self.tableView_main.add_row(hsum = hsum, name = filename, packs = pieces_count, sent = sent)
+            self.statusWidget.init_elem(hsum, pieces_count)
+            if sent == -1:
+                self.statusWidget.add_rect(hsum, 0, pieces_count - 1, self.downloaded_color)
 
     def load_torrents(self):
         for fname in glob.glob("TORRENTS_PATH/*"):
@@ -308,7 +317,7 @@ class MainWindow(QMainWindow, FormMain):
             self.actionStart_transmission.setEnabled(False)
         else:
             self.actionStop_transmission.setEnabled(False)
-            self.actionStart_transmission.setEnabled(True)
+            self.actionStart_transmission.setEnabled(self.transmissions[key]['sent'] != -1)
         self.actionRemove_transmission.setEnabled(True)
         self.statusWidget.current_elem = key
 
@@ -342,6 +351,14 @@ class MainWindow(QMainWindow, FormMain):
     def on_actionAbout_triggered(self):
         form = AboutWindow(self)
         form.show()
+
+    @pyqtSlot()
+    def update_speed(self):
+        for key, e in self.transmissions.items():
+            delta = e['sent'] - e['last_index']
+            speed = delta * PIECE_LEN / 1024.0
+            self.tableView_main.set_speed(speed, key)
+            e['last_index'] = e['sent']
 
     @pyqtSlot(QEvent)
     def add_remote_torrent(self):

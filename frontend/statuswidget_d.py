@@ -22,6 +22,7 @@ class StatusWidget(QWidget):
                 self.__draw_line(painter, piece, line['color'], line['index'])
             for rect in e['rects']:
                 self.__draw_line(painter, piece, rect['color'], rect['start'], rect['finish'])
+        painter.setBrush(Qt.NoBrush)
         painter.setPen(QColor(0xa8, 0xa8, 0xa8))
         painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
 
@@ -42,10 +43,12 @@ class StatusWidget(QWidget):
         e = { 'color': color, 'index': int(index) }
         self.__elems[key]['lines'].append(e)
         self.__combine_lines(key)
+        self.repaint()
 
     def add_rect(self, key, start, finish, color):
         e = { 'color': color, 'start': int(start), 'finish': int(finish) }
         self.__elems[key]['rects'].append(e)
+        self.repaint()
 
     def __combine_lines(self, key):
         #TODO

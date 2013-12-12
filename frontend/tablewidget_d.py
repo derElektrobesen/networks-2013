@@ -91,7 +91,7 @@ class MainTable(TableWidget):
         self.set_sort_role(0)
 
     def set_speed(self, speed, key):
-        super(MainTable, self).change_row(1, row_key = key, data = str(speed))
+        super(MainTable, self).change_row(1, row_key = key, data = "%.2f" % speed)
 
     def set_packs_sent(self, packs, key):
         super(MainTable, self).change_row(3, row_key = key, data = str(packs))
