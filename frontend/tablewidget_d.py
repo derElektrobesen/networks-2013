@@ -11,6 +11,8 @@ class TableWidget(QTableView):
         self.__setup_cols(cols)
         self.__keys = {}
         self.__cur_row = ''
+
+        self.__changes = []
         
         selection_model = self.selectionModel()
         QObject.connect(selection_model, SIGNAL('currentRowChanged(QModelIndex, QModelIndex)'),
@@ -61,7 +63,23 @@ class TableWidget(QTableView):
             raise ValueError("Incorrect params given: row_index or row_key are expected")
         if row_key:
             row_index = self.__keys[row_key].row()
-        self.__model.item(row_index, col_index).setText(data)
+        else:
+            item = self.__model.item(row_index, col_index)
+            row_key = self.get_key_by_index(item.index())
+        flag = 1
+        for value in self.__changes:
+            if value['key'] == row_key and value['col'] == col_index:
+                value['data'] = data
+                flag = 0
+                break
+        if flag:
+            self.__changes.append({ 'key': row_key, 'col': col_index, 'data': data })
+
+    def update_values(self):
+        for value in self.__changes:
+            row = self.__keys[value['key']].row()
+            col = value['col']
+            self.__model.item(row, col).setText(value['data'])
 
     @property
     def current_row(self):

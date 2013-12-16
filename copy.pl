@@ -15,6 +15,7 @@ my $HELP = <<HELP;
         -i  -- set identity rsa file
         -w  -- set work directory [default .]
         -d  -- set destination directory
+        -c  -- do clean while make
         -h  -- show this help
 HELP
 
@@ -27,6 +28,7 @@ my %params = (
 );
 
 my $fname = 'copy_params.dump';
+my $clean = "";
 
 if (-f $fname) {
     %params = %{ retrieve $fname };
@@ -49,6 +51,8 @@ for (@ARGV) {
         $next = 4;
     } elsif ($_ eq '-d') {
         $next = 5;
+    } elsif ($_ eq '-c') {
+        $clean = "clean all";
     } elsif ($next == 1) {
         $params{hostname} = $_;
     } elsif ($next == 2) {
@@ -87,4 +91,4 @@ for (keys %dirs) {
     print "\nscp -i $params{ident} @{$dirs{$_}} $params{user}\@$params{hostname}:$params{dest_dir}/$_\n";
     system "scp", "-i", $params{ident}, @{$dirs{$_}}, "$params{user}\@$params{hostname}:$params{dest_dir}/$_";
 }
-system "ssh", "-i", $params{ident}, "$params{user}\@$params{hostname}", "cd $params{dest_dir}; make";
+system "ssh", "-i", $params{ident}, "$params{user}\@$params{hostname}", "cd $params{dest_dir}; make $clean";

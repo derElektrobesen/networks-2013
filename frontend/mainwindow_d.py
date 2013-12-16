@@ -80,8 +80,10 @@ class MainWindow(QMainWindow, FormMain):
         self.tableView_main.rowDoubleClicked.connect(self.on_row_double_clicked)
 
         self.timer = QTimer(self)
-        self.connect(self.timer, SIGNAL("timeout()"), self.update_speed)
-        self.timer.start(1000)
+        self.connect(self.timer, SIGNAL("timeout()"), self.on_timer)
+        self.timer.start(100)
+
+        self.timer_iteration = 0
 
         self.transmissions = {}
         self.expected_response = 0
@@ -257,6 +259,13 @@ class MainWindow(QMainWindow, FormMain):
         with open(fname, 'wb') as f:
             pickle.dump(struct, f, 0)
 
+    def update_speed(self):
+        for key, e in self.transmissions.items():
+            delta = e['sent'] - e['last_index']
+            speed = delta * PIECE_LEN / 1024.0
+            self.tableView_main.set_speed(speed, key)
+            e['last_index'] = e['sent']
+
     @pyqtSlot()
     def on_actionStart_transmission_triggered(self):
         key = self.tableView_main.current_row
@@ -353,12 +362,21 @@ class MainWindow(QMainWindow, FormMain):
         form.show()
 
     @pyqtSlot()
-    def update_speed(self):
-        for key, e in self.transmissions.items():
-            delta = e['sent'] - e['last_index']
-            speed = delta * PIECE_LEN / 1024.0
-            self.tableView_main.set_speed(speed, key)
-            e['last_index'] = e['sent']
+    def on_timer(self):
+        speed_time = 10
+        status_w_time = 3
+        table_w_time = 5
+        if self.timer_iteration % speed_time == 0:
+            self.update_speed()
+        if self.timer_iteration % status_w_time == 0:
+            self.statusWidget.repaint()
+        if self.timer_iteration % table_w_time == 0:
+            self.tableView_main.update_values()
+            self.tableView_client.update_values()
+            self.tableView_server.update_values()
+        if self.timer_iteration > 100 * speed_time * status_w_time * table_w_time:
+            self.timer_iteration = -1
+        self.timer_iteration += 1
 
     @pyqtSlot(QEvent)
     def add_remote_torrent(self):

@@ -43,12 +43,10 @@ class StatusWidget(QWidget):
         e = { 'color': color, 'index': int(index) }
         self.__elems[key]['lines'].append(e)
         self.__combine_lines(key)
-        self.repaint()
 
     def add_rect(self, key, start, finish, color):
         e = { 'color': color, 'start': int(start), 'finish': int(finish) }
         self.__elems[key]['rects'].append(e)
-        self.repaint()
 
     def __combine_lines(self, key):
         #TODO
