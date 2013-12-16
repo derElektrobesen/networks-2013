@@ -44,7 +44,7 @@ EXEC_DIR = $(shell pwd)
 FILE_PATH_FLAG = default_path
 
 DAEMONIZE =
-DO_LOGIN =
+DO_LOGIN = 1
 
 PROTO_STRUCT_SIZE = 296
 
