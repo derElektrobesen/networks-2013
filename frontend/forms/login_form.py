@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'frontend/forms/login_form.ui'
 #
-# Created: Mon Dec 16 15:31:02 2013
+# Created: Mon Dec 16 23:10:19 2013
 #      by: PyQt4 UI code generator 4.10.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -11,10 +11,10 @@ import sys
 
 sys.path.append('/home/pavel/projects/Networks/networks-2013/frontend')
 
-from tablewidget import MainTable
-from tablewidget import ClientTable
-from tablewidget import ServerTable
 from statuswidget import StatusWidget
+from tablewidget import ServerTable
+from tablewidget import ClientTable
+from tablewidget import MainTable
 
 from PyQt4 import QtCore, QtGui
 

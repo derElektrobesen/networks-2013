@@ -122,10 +122,21 @@ class MainWindow(QMainWindow, FormMain):
 
     # Actions
     def on_package_sent_act(self, data):
+        cli = self.clients[data['id']]
         Logger.log("Часть #{n} файла '{fname}' была отправлена на адрес '{ip}'" \
-                .format(ip = self.servers[data['id']], n = data['piece_id'], fname = data['file_name']))
-        self.servers[data['id']]['sent'] += 1
-        self.tableView_client.set_packs_sent(self.servers[data['id']]['sent'])
+                .format(ip = cli['ip'], n = data['piece_id'], fname = data['file_name']))
+        key = "{0}-{1}".format(data['id'], data['file_name'])
+        if key in cli['items']:
+            cli['items'][key]['sent'] += 1
+            self.tableView_server.set_packs_sent(cli['items'][key]['sent'], key)
+        else:
+            cli['items'][key] = {
+                'sent': 1,
+                'last_index': 0,
+                'name': data['file_name'],
+            }
+            self.tableView_server.add_row(key, data['file_name'], cli['ip'], 1)
+
 
     def on_package_received_act(self, data):
         Logger.log("С адреса '{ip}' была получена часть #{n} файла '{fname}'" \
@@ -139,19 +150,26 @@ class MainWindow(QMainWindow, FormMain):
         self.statusWidget.add_line(data['hsum'], data['piece_id'],
                 self.servers[data['id']]['color'])
 
+        s = self.servers[data['id']]
+        s['sent'] += 1
+        self.tableView_client.set_packs_sent(s['sent'], s['ip'])
+
     def on_server_added_act(self, data):
         Logger.log("Подключен сервер '{ip}'".format(ip = data['ip']))
         self.servers[data['id']] = {
             'ip': data['ip'],
             'sent': 0,
+            'last_index': 0,
             'color': QColor.fromHsv(random.randint(0, 359), 220, 190),
         }
         self.tableView_client.add_row(data['ip'])
 
     def on_client_added_act(self, data):
         Logger.log("Подключен клиент '{ip}'".format(ip = data['ip']))
-        self.clients[data['id']] = data['ip']
-        # TODO
+        self.clients[data['id']] = {
+            'ip': data['ip'],
+            'items': {},
+        }
 
     def on_server_removed_act(self, data):
         Logger.log("Сервер '{ip}' отключился".format(ip = self.servers[data['id']]['ip']))
@@ -159,9 +177,10 @@ class MainWindow(QMainWindow, FormMain):
         del self.servers[data['id']]
 
     def on_client_removed_act(self, data):
-        Logger.log("Клиент '{ip}' отключился".format(ip = self.clients[data['id']]))
+        Logger.log("Клиент '{ip}' отключился".format(ip = self.clients[data['id']]['ip']))
+        for key in self.clients[data['id']]['items']:
+            self.tableView_server.remove_row(key)
         del self.clients[data['id']]
-        # TODO
 
     def on_answer_act(self, data):
         r = int(data['result'])
@@ -290,11 +309,20 @@ class MainWindow(QMainWindow, FormMain):
             pickle.dump(struct, f, 0)
 
     def update_speed(self):
+        count_speed = lambda delta: delta * PIECE_LEN / 1024.0
         for key, e in self.transmissions.items():
             delta = e['sent'] - e['last_index']
-            speed = delta * PIECE_LEN / 1024.0
-            self.tableView_main.set_speed(speed, key)
+            self.tableView_main.set_speed(count_speed(delta), key)
             e['last_index'] = e['sent']
+        for e in self.servers.values():
+            delta = e['sent'] - e['last_index']
+            self.tableView_client.set_speed(count_speed(delta), e['ip'])
+            e['last_index'] = e['sent']
+        for e in self.clients.values():
+            for key, value in e['items'].items():
+                delta = value['sent'] - value['last_index']
+                self.tableView_server.set_speed(count_speed(delta), key)
+                value['last_index'] = value['sent']
 
     @pyqtSlot()
     def on_actionStart_transmission_triggered(self):

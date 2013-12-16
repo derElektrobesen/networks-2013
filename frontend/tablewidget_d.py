@@ -80,6 +80,7 @@ class TableWidget(QTableView):
             row = self.__keys[value['key']].row()
             col = value['col']
             self.__model.item(row, col).setText(value['data'])
+        self.__changes = []
 
     @property
     def current_row(self):
@@ -102,10 +103,10 @@ class MainTable(TableWidget):
         super(MainTable, self).__init__(parent, cols)
         self.set_sort_role(0)
 
-    def add_row(self, hsum, name = '', packs = 0, sent = -1, speed = 0):
+    def add_row(self, hsum, name = '', packs = 0, sent = -1, speed = 0.0):
         sent = packs if sent < 0 else sent
         super(MainTable, self).add_row([name, speed, packs, sent,
-            packs / sent * 100 if sent != 0 else 0], hsum)
+            packs / sent * 100 if sent != 0 else 0.0], hsum)
         self.set_sort_role(0)
 
     def set_speed(self, speed, key):
@@ -124,15 +125,24 @@ class ClientTable(TableWidget):
         self.set_sort_role(0)
 
     def add_row(self, ip):
-        super(ClientTable, self).add_row([ip, 0, 0], ip)
+        super(ClientTable, self).add_row([ip, 0.0, 0], ip)
 
     def set_packs_sent(self, packs, ip):
         super(ClientTable, self).change_row(2, row_key = ip, data = str(packs))
 
     def set_speed(self, speed, ip):
-        super(ClientTable, self).change_row(1, row_key = ip, data = str(speed))
+        super(ClientTable, self).change_row(1, row_key = ip, data = "%.2f" % speed)
 
 class ServerTable(TableWidget):
     def __init__(self, parent = None):
-        cols = ['Передача', 'Скорость (кб/с)', 'Пакетов всего', 'Передано пакетов', 'Передано %']
+        cols = ['Передача', 'Адресат', 'Скорость (кб/с)', 'Передано пакетов']
         super(ServerTable, self).__init__(parent, cols)
+
+    def add_row(self, key, name, ip, count = 0):
+        super(ServerTable, self).add_row([name, ip, 0.0, count], key)
+
+    def set_speed(self, speed, key):
+        super(ServerTable, self).change_row(2, row_key = key, data = "%.2f" % speed)
+
+    def set_packs_sent(self, packs, key):
+        super(ServerTable, self).change_row(3, row_key = key, data = str(packs))
