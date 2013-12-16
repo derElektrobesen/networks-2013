@@ -223,13 +223,9 @@ class MainWindow(QMainWindow, FormMain):
         return self.handle_error(class_name, msg, self.cli)
 
     def handle_srv_backend_message(self, msg):
-        Logger.log("Возникла ошибка на стороне сервера{msg}" \
-                .format(msg = ": " + msg if msg else ""))
         return self.handle_backend_message(msg, self.srv)
 
     def handle_cli_backend_message(self, msg):
-        Logger.log("Возникла ошибка на стороне клиента{msg}" \
-                .format(msg = ": " + msg if msg else ""))
         return self.handle_backend_message(msg, self.cli)
 
     def handle_error(self, class_name, msg = None, sender = None):
