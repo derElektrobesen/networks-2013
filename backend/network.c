@@ -229,19 +229,6 @@ static int init_gui_sock(const char *sock_path) {
 }
 
 /**
- * Функция устанавливает режим
- * неблокирующего ввода\вывода для сокета.
- */
-static int make_sock_nonblock(int sock) {
-    int e = 0;
-    /* e = fcntl(sock, F_SETFL, O_NONBLOCK); */
-    if (e < 0) {
-        err_n(-1, "fcntl failure");
-    }
-    return e;
-}
-
-/**
  * Функция возвращает ошибку, если
  * инициализация клиента закончилась неудачно.
  */
@@ -305,8 +292,6 @@ static int create_client(const char *addr) {
         err_no = errno;
         return init_server_err(sock, err_no);
     }
-
-    make_sock_nonblock(sock);
 
     if (connect_retry(sock, ailist->ai_addr, ailist->ai_addrlen, 5) < 0) {
         err_no = errno;
@@ -396,8 +381,6 @@ static int receive_messages(int sock, socket_callback callback) {
     char *g_vals[2] = {ip_addr, buf};
     int count = 2;
 
-    make_sock_nonblock(sock);
-
     gui_sock = init_gui_sock(INTERFACE_SRV_SOCKET_PATH);
     max_sock_fd = sock > gui_sock ? sock : gui_sock;
 
@@ -422,8 +405,8 @@ static int receive_messages(int sock, socket_callback callback) {
             get_sock_ip(cli_sock, ip_addr, sizeof(ip_addr));
             snprintf(buf, sizeof(buf), "%d", cli_sock);
             g_acts->client_added(g_opts, g_vals, count);
+
             log(SERVER, "accepted connection: %d (%s)", cli_sock, ip_addr);
-            make_sock_nonblock(cli_sock);
             if (sockets_count > MAX_CONNECTIONS - 1) {
                 log(SERVER, "connection refused: too many connections");
                 send(cli_sock, err_str, strlen(err_str), 0);
