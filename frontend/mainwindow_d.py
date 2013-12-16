@@ -88,12 +88,15 @@ class MainWindow(QMainWindow, FormMain):
         self.transmissions = {}
         self.expected_response = 0
 
+        Logger.log("Старт приложения")
+
         if ("DAEMONIZE"):
             self.run_daemons()
 
         self.load_torrents()
 
     def closeEvent(self, e):
+        Logger.log("Завершение приложения")
         self.hide()
         self.cli_thread.stop_thread()
         self.srv_thread.stop_thread()
@@ -101,8 +104,10 @@ class MainWindow(QMainWindow, FormMain):
     def run_daemons(self):
         cli = subprocess.Popen("CLI", stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+        Logger.log("Клиент запущен")
         srv = subprocess.Popen("SRV", stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+        Logger.log("Сервер запущен")
 
     # Actions
     def on_package_sent_act(self, data):
@@ -168,6 +173,7 @@ class MainWindow(QMainWindow, FormMain):
     def on_file_received_act(self, data):
         s = data['hsum']
         struct = self.transmissions[s]
+        Logger.log("Файл '{name}' был полностью получен".format(name = struct['filename']))
         self.create_torrent_file(struct['filename'], struct['filesize'],
             data['hsum'], "DOWNLOADS_PATH/" + struct['filename'])
         self.load_torrent(fname = "TORRENTS_PATH/" + s, add_row = False)
@@ -177,15 +183,23 @@ class MainWindow(QMainWindow, FormMain):
         self.on_main_table_row_changed(s)
 
     def handle_srv_error(self, class_name, msg = None):
+        Logger.log("Возникла ошибка в потоке сервера{msg}" \
+                .format(msg = ": " + msg if msg else ""))
         return self.handle_error(class_name, msg, self.srv)
 
     def handle_cli_error(self, class_name, msg = None):
+        Logger.log("Возникла ошибка в потоке клиента{msg}" \
+                .format(msg = ": " + msg if msg else ""))
         return self.handle_error(class_name, msg, self.cli)
 
     def handle_srv_backend_message(self, msg):
+        Logger.log("Возникла ошибка на стороне сервера{msg}" \
+                .format(msg = ": " + msg if msg else ""))
         return self.handle_backend_message(msg, self.srv)
 
     def handle_cli_backend_message(self, msg):
+        Logger.log("Возникла ошибка на стороне клиента{msg}" \
+                .format(msg = ": " + msg if msg else ""))
         return self.handle_backend_message(msg, self.cli)
 
     def handle_error(self, class_name, msg = None, sender = None):
@@ -226,6 +240,9 @@ class MainWindow(QMainWindow, FormMain):
             filesize = int(filesize)
         pieces_count = math.ceil(filesize / PIECE_LEN)
 
+        Logger.log("Был загружен торрент файл для файла '{name}'{status}" \
+                .format(name = filename, status = ", статус: загружен" if sent == -1 else ""))
+
         save = {
             'filename': filename,
             'filesize': filesize,
@@ -256,6 +273,8 @@ class MainWindow(QMainWindow, FormMain):
         if fname:
             struct['default_path'] = fname
         fname = "TORRENTS_PATH/" + hsum
+        Logger.log("Был создан торрент файл для файла '{name}'" \
+                .format(name = filename))
         with open(fname, 'wb') as f:
             pickle.dump(struct, f, 0)
 
@@ -273,7 +292,7 @@ class MainWindow(QMainWindow, FormMain):
             return
         s = self.transmissions[key]
         if not s['finished']:
-            Logger.log("Отправлен запрос на получение файла {name}" \
+            Logger.log("Отправлен запрос на получение файла '{name}'" \
                 .format(name = s['filename']))
             self.cli_thread.send_message({'action': START_TRM_ACT,
                 'hsum': key, 'filename': s['filename'], 'filesize': str(s['filesize'])})
@@ -302,6 +321,8 @@ class MainWindow(QMainWindow, FormMain):
             os.remove("TORRENTS_PATH/" + key)
         except OSError:
             pass
+        Logger.log("Торрен файл для файла '{name}' был удален" \
+                .format(name = self.transmissions[key]['filename']))
         del self.transmissions[key]
 
     @pyqtSlot()
@@ -310,7 +331,7 @@ class MainWindow(QMainWindow, FormMain):
             key = self.tableView_main.current_row
         s = self.transmissions[key]
         if s['active']:
-            Logger.log("Отправлен запрос на остановку получения файла {name}" \
+            Logger.log("Отправлен запрос на остановку получения файла '{name}'" \
                 .format(name = s['filename']))
             self.cli_thread.send_message({'action': STOP_TRM_ACT, 'filename': s['filename'],
                 'hsum': key, 'filesize': str(s['filesize']), 'trmid': s['trmid']})
