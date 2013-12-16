@@ -375,7 +375,7 @@ class MainWindow(QMainWindow, FormMain):
             self.tableView_client.update_values()
             self.tableView_server.update_values()
         if self.timer_iteration > 100 * speed_time * status_w_time * table_w_time:
-            self.timer_iteration = -1
+            self.timer_iteration = 0
         self.timer_iteration += 1
 
     @pyqtSlot(QEvent)
