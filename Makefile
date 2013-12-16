@@ -44,6 +44,7 @@ EXEC_DIR = $(shell pwd)
 FILE_PATH_FLAG = default_path
 
 DAEMONIZE =
+DO_LOGIN =
 
 PROTO_STRUCT_SIZE = 296
 
@@ -100,7 +101,7 @@ SRV_OBJS = $(SRV_SRCS:%.c=$(O_DIR)/%.o)
 CLI_SRCS = cli.c
 CLI_OBJS = $(CLI_SRCS:%.c=$(O_DIR)/%.o)
 
-FORMS = main_form.ui about_form.ui torrent_form.ui logs_form.ui
+FORMS = main_form.ui about_form.ui torrent_form.ui logs_form.ui login_form.ui
 F_MAIN_FILE = $(F_DIR)/main.py
 PY_FILES = main statuswidget tablewidget net_sock thread mainwindow otherwindows log
 UIGEN = pyuic4
@@ -128,7 +129,8 @@ MAIN_RULES_ = \
 			PIECE_LEN:$(shell echo "$(BUF_MAX_LEN) - $(PROTO_STRUCT_SIZE)" | bc) \
 			CLI:$(EXEC_DIR)/$(CLI_TAR) \
 			SRV:$(EXEC_DIR)/$(SRV_TAR) \
-			DAEMONIZE:$(DAEMONIZE)
+			DAEMONIZE:$(DAEMONIZE) \
+			DO_LOGIN:$(DO_LOGIN)
 
 CREATE_RULE = $(shell echo '$1' | perl -e 'my $$r = ""; while (<>) { s/\s+/*/g; $$r .= $$_; } print "$$r"')
 UI_RULES = $(call CREATE_RULE, $(UI_RULES_))

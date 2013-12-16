@@ -8,7 +8,7 @@ from thread import Thread
 
 from log import Logger
 
-from otherwindows import TorrentWindow, AboutWindow, LogsWindow
+from otherwindows import TorrentWindow, AboutWindow, LogsWindow, LoginWindow
 
 import json
 import hashlib
@@ -53,6 +53,13 @@ class MainWindow(QMainWindow, FormMain):
         if not os.path.exists("TORRENTS_PATH"):
             os.makedirs("TORRENTS_PATH")
 
+        r = self.geometry()
+        r.moveCenter(QApplication.desktop().availableGeometry().center())
+        self.setGeometry(r)
+
+        if ("DO_LOGIN"):
+            self.show_login_form()
+
         self.actions = {
             PACKAGE_SENT_ACT: self.on_package_sent_act,
             PACKAGE_RECEIVED_ACT: self.on_package_received_act,
@@ -94,6 +101,10 @@ class MainWindow(QMainWindow, FormMain):
             self.run_daemons()
 
         self.load_torrents()
+
+    def show_login_form(self):
+        form = LoginWindow(self)
+        form.show()
 
     def closeEvent(self, e):
         Logger.log("Завершение приложения")
