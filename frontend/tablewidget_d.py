@@ -79,7 +79,9 @@ class TableWidget(QTableView):
         for value in self.__changes:
             row = self.__keys[value['key']].row()
             col = value['col']
-            self.__model.item(row, col).setText(value['data'])
+            item = self.__model.item(row, col)
+            if item:
+                item.setText(value['data'])
         self.__changes = []
 
     @property

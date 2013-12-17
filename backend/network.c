@@ -287,16 +287,18 @@ static int create_client(const char *addr) {
         err_n(CLIENT, "socket failure");
         return init_client_err(-1, err_no);
     }
-    if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &buf_len, sizeof(int)) < 0) {
-        err_n(SERVER, "setsockopt failure");
-        err_no = errno;
-        return init_server_err(sock, err_no);
-    }
+    if (sock >= 0) {
+        if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &buf_len, sizeof(int)) < 0) {
+            err_n(SERVER, "setsockopt failure");
+            err_no = errno;
+            return init_server_err(sock, err_no);
+        }
 
-    if (connect_retry(sock, ailist->ai_addr, ailist->ai_addrlen, 5) < 0) {
-        err_no = errno;
-        err_n(CLIENT, "connection failure\n");
-        return init_client_err(sock, err_no);
+        if (connect_retry(sock, ailist->ai_addr, ailist->ai_addrlen, 5) < 0) {
+            err_no = errno;
+            err_n(CLIENT, "connection failure\n");
+            return init_client_err(sock, err_no);
+        }
     }
     freeaddrinfo(ailist);
     return sock;
@@ -685,14 +687,15 @@ static int accept_conn(struct sockets_queue *q, struct sockaddr_in *srv_addr) {
 
     if (inet_ntop(AF_INET, &(srv_addr->sin_addr), srv_ch_addr, INET_ADDRSTRLEN)) {
         s = create_client(srv_ch_addr);
+        if (s >= 0) {
+            log(BROADCAST, "accepted server: %s", srv_ch_addr);
+            snprintf(buf, sizeof(buf), "%d", s);
+            g_acts->server_added(o_names, o_vals, count);
 
-        log(BROADCAST, "accepted server: %s", srv_ch_addr);
-        snprintf(buf, sizeof(buf), "%d", s);
-        g_acts->server_added(o_names, o_vals, count);
-
-        q->addrs[q->count] = srv_addr->sin_addr.s_addr;
-        q->sockets[q->count++] = s;
-        r = s;
+            q->addrs[q->count] = srv_addr->sin_addr.s_addr;
+            q->sockets[q->count++] = s;
+            r = s;
+        }
     } else {
         err(BROADCAST, "inet_ntop failure");
         r = -1;
