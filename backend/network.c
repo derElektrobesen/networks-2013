@@ -724,6 +724,7 @@ static int process_broadcast_servers(int sock, struct sockets_queue *q) {
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
 
+    err(CLIENT, "BROADCAST CATCHED");
     if (recvfrom(sock, buf, BUF_MAX_LEN, 0, (struct sockaddr *)(&addr), &addr_len) > 0) {
 #ifndef USE_LOOPBACK
         /** Check detected connection for loopback */
@@ -779,8 +780,8 @@ static int recv_srv_msg(fd_set *set, struct sockets_queue *q, socket_callback ca
                 g_acts->server_removed(o_names, o_vals, count);
                 log(CLIENT, "server %d has been disconnected", q->sockets[i]);
                 offset++;
-                i--;
                 close(q->sockets[i]);
+                i--;
                 q->count--;
             } else if (bytes_read) {
                 log(OTHER, "bytes read: %zu", bytes_read);
@@ -873,6 +874,7 @@ static int receive_servers_messages(
         }
 
         if (select(max_sock_fd + 1, &set, NULL, NULL, dispatcher ? &timeout : NULL) > 0) {
+            err(BROADCAST, "Broadcast sock: %d", broadcast_sock);
             if (FD_ISSET(broadcast_sock, &set)) {
                 new_sock = process_broadcast_servers(broadcast_sock, q);
                 if (new_sock >= 0)
