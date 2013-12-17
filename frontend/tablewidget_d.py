@@ -125,15 +125,41 @@ class ClientTable(TableWidget):
         cols = ['Адресат', 'Скорость (кб/с)', 'Пакетов получено']
         super(ClientTable, self).__init__(parent, cols)
         self.set_sort_role(0)
+        self.__packages = {}
+        self.__current_package = None
 
-    def add_row(self, ip):
-        super(ClientTable, self).add_row([ip, 0.0, 0], ip)
+    def add_row(self, ip, pack):
+        p = self.__packages[pack]
+        if not p:
+            self.__packages[pack] = {
+                'ip': ip,
+                'speed': 0.0,
+                'count': 0,
+            }
+            p = self.__packages[pack]
+        if self.__current_package == pack:
+            super(ClientTable, self).add_row([p['ip'], p['speed'], p['count']], ip)
 
-    def set_packs_sent(self, packs, ip):
+    def set_packs_sent(self, packs, ip, pack):
         super(ClientTable, self).change_row(2, row_key = ip, data = str(packs))
 
-    def set_speed(self, speed, ip):
+    def set_speed(self, speed, ip, pack):
         super(ClientTable, self).change_row(1, row_key = ip, data = "%.2f" % speed)
+
+    def change_current_packages(self, new_pack):
+        # TODO
+        pass
+
+    @property
+    def current_package(self):
+        return self.__current_package
+
+    @current_package.setter
+    def current_package(self, value):
+        if not self.__packages[value]:
+            return
+        if self.__current_package != value:
+            self.change_current_package(value)
 
 class ServerTable(TableWidget):
     def __init__(self, parent = None):
