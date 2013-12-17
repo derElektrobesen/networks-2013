@@ -730,22 +730,26 @@ static int process_broadcast_servers(int sock, struct sockets_queue *q) {
         ips_count = get_hostIPs(local_ips, NULL, MAX_INTERFACES_COUNT, 0);
         for (i = 0; !flag && i < ips_count; i++)
             if (local_ips[i] == addr.sin_addr.s_addr)
-                flag = 1;
-        if (!flag)
+                flag = -1;
+        if (!flag) {
 #endif
         if (check_detected_conn(buf, BUF_MAX_LEN) == 0) {
             /** Connection is ok. Check for already established conn */
             for (i = 0; !flag && i < q->count; i++)
                 if (addr.sin_addr.s_addr == q->addrs[i])
-                    flag = 2;
+                    flag = -2;
             if (!flag) {
                 flag = accept_conn(q, &addr);
                 if (flag < 0)
-                    flag = 3; /** Another errors */
+                    flag = -3; /** Another errors */
             }
         }
+#ifndef USE_LOOPBACK
+        } else
+            flag = -1;
+#endif
     } else
-        flag = 3;
+        flag = -3;
     return flag;
 }
 
