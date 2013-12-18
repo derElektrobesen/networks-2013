@@ -8,7 +8,7 @@ static struct gui_actions *g_acts;
  * инициализация сервера закончилась неудачно.
  */
 static int init_server_err(int sock, int err_no) {
-    if (sock > 0)
+    if (sock >= 0)
         close(sock);
     errno = err_no;
     return -1;
@@ -233,7 +233,7 @@ static int init_gui_sock(const char *sock_path) {
  * инициализация клиента закончилась неудачно.
  */
 static int init_client_err(int sock, int err_no) {
-    if (sock)
+    if (sock >= 0)
         close(sock);
     errno = err_no;
     return -1;
@@ -278,7 +278,7 @@ static int create_client(const char *addr) {
     hint.ai_socktype = SOCK_STREAM;
     if ((err_no = getaddrinfo(addr, port, &hint, &ailist)) < 0) {
         err_no = errno;
-        err_n(CLIENT, "getaddrinfo: %s", gai_strerror(err_no));
+        err(CLIENT, "getaddrinfo: %s", gai_strerror(err_no));
         return init_client_err(-1, err_no);
     }
 
@@ -287,18 +287,17 @@ static int create_client(const char *addr) {
         err_n(CLIENT, "socket failure");
         return init_client_err(-1, err_no);
     }
-    if (sock >= 0) {
-        if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &buf_len, sizeof(int)) < 0) {
-            err_n(SERVER, "setsockopt failure");
-            err_no = errno;
-            return init_server_err(sock, err_no);
-        }
 
-        if (connect_retry(sock, ailist->ai_addr, ailist->ai_addrlen, 5) < 0) {
-            err_no = errno;
-            err_n(CLIENT, "connection failure\n");
-            return init_client_err(sock, err_no);
-        }
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &buf_len, sizeof(int)) < 0) {
+        err_n(CLIENT, "setsockopt failure");
+        err_no = errno;
+        return init_client_err(sock, err_no);
+    }
+
+    if (connect_retry(sock, ailist->ai_addr, ailist->ai_addrlen, 5) < 0) {
+        err_no = errno;
+        err_n(CLIENT, "connection failure\n");
+        return init_client_err(sock, err_no);
     }
     freeaddrinfo(ailist);
     return sock;
