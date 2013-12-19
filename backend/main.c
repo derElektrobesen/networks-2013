@@ -59,16 +59,10 @@ static void daemonize(const char *daemon_name) {
     struct rlimit rl;
     int block_fd;
 
-
     if (strstr(daemon_name, "/"))
         daemon_name = strrchr(daemon_name, '/');
 
     snprintf(file_name, st_arr_len(file_name), "%s/%s.pid", LOCK_FILE_PATH, daemon_name);
-
-    if ((block_fd = is_running(file_name)) == -1) {
-        syslog(LOG_ERR, "%s is already running", daemon_name);
-        exit(1);
-    }
 
     umask(0);
     if (getrlimit(RLIMIT_NOFILE, &rl) < 0){
@@ -83,17 +77,20 @@ static void daemonize(const char *daemon_name) {
     setsid();
 
     if (chdir("/") < 0) {
-        /*add log*/
         return;
     }
 
     if (rl.rlim_max == RLIM_INFINITY)
         rl.rlim_max = 1024;
-    for (i = 0; i < rl.rlim_max && i != block_fd; i++)
+    for (i = 0; i < rl.rlim_max; i++)
         close(i);
    
+    if ((block_fd = is_running(file_name)) == -1) {
+        syslog(LOG_ERR, "%s is already running", daemon_name);
+        exit(1);
+    }
+
     openlog(daemon_name, LOG_CONS | LOG_PID, LOG_DAEMON);
-    /* TODO: syslog -> macro.h */
 }
 #endif /* DAEMONIZE */
 

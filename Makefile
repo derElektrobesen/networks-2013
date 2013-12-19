@@ -43,7 +43,7 @@ FRONTEND_HOME = $(shell pwd)/$(F_DIR)
 EXEC_DIR = $(shell pwd)
 FILE_PATH_FLAG = default_path
 
-DAEMONIZE =
+DAEMONIZE = DAEMONIZE
 DO_LOGIN = 1
 
 PROTO_STRUCT_SIZE = 296

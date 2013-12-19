@@ -259,11 +259,11 @@ static void on_terminate_gui_act(char **opts_names,
         char **opts_vals, unsigned int count, const struct sockets_queue *q) {
     char *r_opts_names[] = {"result", "act"};
     char *r_opts_vals[] = {"0", TERMINATE_ACT};
-    int i;
 
+/*
     for (i = 0; i < q->count; i++)
         close(q->sockets[i]);
-
+*/
     g_acts->answer(r_opts_names, r_opts_vals, 2);
 
     exit(0);    /* terminate */
