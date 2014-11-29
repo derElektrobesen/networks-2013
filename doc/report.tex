@@ -1,0 +1,105 @@
+\documentclass[a4paper]{article}
+
+\usepackage[14pt]{extsizes}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\usepackage[english,russian]{babel}
+
+\usepackage{fancyhdr}
+\usepackage{indentfirst}
+
+\usepackage{graphicx}
+
+\usepackage{listings}
+\usepackage{color}
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\lstset{extendedchars=\true,
+		breaklines=true,
+		breakatwhitespace=true,
+		captionpos=b,
+		keepspaces=true,
+		keywordstyle=\color{blue},
+		numbers=left,
+		tabsize=4,
+		numberstyle=\tiny\color{mygray},
+		commentstyle=\color{mygreen},
+		language=C,
+		basicstyle=\ttfamily\small,
+		showstringspaces=false,
+		title=\lstname,
+        belowskip=1mm,
+		}
+\renewcommand{\lstlistingname}{Листинг}
+ 
+\usepackage{geometry} % Меняем поля страницы
+\geometry{left=2.8cm}% левое поле
+\geometry{right=2.8cm}% правое поле
+\geometry{top=2.5cm}% верхнее поле
+\geometry{bottom=3cm}% нижнее поле
+
+\usepackage{perpage}
+\MakePerPage{footnote}
+
+\setcounter{tocdepth}{2}
+\ifx
+Выставление глубины оглавления
+n=4 это chapter, section, subsection, subsubsection и paragraph;
+n=3 это chapter, section, subsection и subsubsection;
+n=2 это chapter, section, и subsection;
+n=1 это chapter и section;
+n=0 это chapter.
+\fi
+
+\renewcommand*\thesection{\arabic{section}.}
+\renewcommand*\thesubsection{\thesection\arabic{subsection}}
+
+\usepackage{titlesec}
+\newcommand{\sectionbreak}{\clearpage}
+
+\newcommand{\newpar}{\par\medskip}
+\newcommand{\bmstu}{МГТУ им. Н.\,Э.\,Баумана}
+\newcommand{\engl}[1]{\textit{#1}}
+
+\newcommand{\linuxcommand}[1]{\texttt{#1}}
+\newcommand{\src}[1]{\linuxcommand{#1}}
+\newcommand{\json}[1]{\textbraceleft\ \src{#1}\ \textbraceright}
+
+\usepackage{biblatex}
+\bibliography{biblio.bib}
+
+\usepackage[titletoc,title]{appendix}
+\renewcommand\thefigure{\arabic{section}.\arabic{figure}}
+
+\makeatletter
+    \setlength\@fptop{0\p@}
+\makeatother
+
+\newcommand{\sectiontitle}{}
+\newcommand{\newsection}[1]{\renewcommand{\sectiontitle}{#1}}
+
+\begin{document}
+    \renewcommand{\figurename}{Рисунок}
+	\input{titlepage}
+	\newpage
+    \pagestyle{fancy}
+    \fancyhf{}
+    \fancyhead[r]{\thepage}
+    \fancyhead[C]{\sectiontitle}
+    \newsection{Содержание}
+	\tableofcontents
+	\input{intro}	
+	\input{analizis}
+	\input{constructs}
+	\input{tehno}
+    \setcounter{section}{0}
+    \setcounter{subsection}{0}
+	\newpage
+	\addcontentsline{toc}{section}{\bibname}
+	\nocite{*}
+    \newsection{Список литературы}
+    \printbibliography
+	\input{appendix}
+\end{document}

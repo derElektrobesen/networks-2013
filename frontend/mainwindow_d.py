@@ -190,6 +190,9 @@ class MainWindow(QMainWindow, FormMain):
             if data['error'] == FILE_RECEIVING_FAILURE:
                 self.on_actionStop_transmission_triggered(data['hsum'])
         Logger.log("Результат выполнения операции: {r}{text}".format(r = r, text = text))
+        if r == -1:
+            QMessageBox.information(self, "Ошибка",
+                "Торрент файл не может быть загружен -- нет активных серверов")
 
         if 'act' in data and 'hsum' in data and data['hsum'] in self.transmissions:
             trm = self.transmissions[data['hsum']]
@@ -341,6 +344,7 @@ class MainWindow(QMainWindow, FormMain):
                 self.create_torrent_file(ntpath.basename(fname), os.path.getsize(fname), hsum, fname)
                 self.load_torrent(fname = "TORRENTS_PATH/" + hsum)
             else:
+                Logger.log("Торрент файл {0} уже существует".format(fname))
                 QMessageBox.information(self, 'Ошибка',
                     'Торрент файл уже существует', QMessageBox.Ok)
 

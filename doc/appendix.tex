@@ -1,0 +1,229 @@
+\begin{appendix}
+\section*{Приложение А}
+\newsection{Приложение А}
+\addcontentsline{toc}{section}{Приложение А}
+В приложении приводятся основные прототипы пользовательских функций,
+структур и некоторых типов данных.
+\subsubsection*{Прототипы функций и структуры, используемые сервером}
+Структура приведенная ниже описывает характеристики куска файла, такие
+позиции начала и конца куска, содержит сам кусок, имя файла и указатель
+на объект \texttt{FILE}. Используемые константы:
+\begin{itemize}
+    \item \texttt{CACHED\_PIECES\_COUNT}~-- число кусков находящихся в кэше.
+    \item \texttt{DATA\_BLOCK\_LEN}~-- размер куска файла.
+\end{itemize}
+\begin{lstlisting}
+struct file_cache {
+    unsigned char data[CACHED_PIECES_COUNT * DATA_BLOCK_LEN];
+    piece_id_t start_piece;
+    piece_id_t end_piece;
+    char name[DATA_BLOCK_LEN];
+    FILE *file;
+};
+\end{lstlisting}
+
+Структура, которая реализует очередь кусков файлов.
+\texttt{MAX\_TRANSMISSIONS}~-- максимальное число передач.
+\begin{lstlisting}
+struct files_queue {
+    char positions[MAX_TRANSMISSIONS];
+    struct file_cache cache[MAX_TRANSMISSIONS];
+    int count;
+};
+\end{lstlisting}
+
+Функция, которая обрабатывает сообщение переданное клиентом.\\
+\texttt{int process\_client\_message(int sender\_sock, const char *msg, size\_t count);}
+
+Функция ниже используется для обмена сообщениями с пользовательским
+приложением.\\
+\texttt{void setup\_gui\_acts(struct gui\_actions *acts);}
+
+\subsubsection*{Прототипы функций и структуры, используемые клиентом}
+Структура описывает кусок, который выбивается из структуры ниже
+\begin{lstlisting}
+struct file_udata_t {
+    piece_id_t piece_id;    \\ Индекс куска файла
+    piece_len_t piece_len;  \\ Текущий размер куска
+    unsigned char data[DATA_BLOCK_LEN]; \\ Кусок данных
+};
+\end{lstlisting}
+
+Структура описывает блок данных для сброса на жесткий диск.
+\begin{lstlisting}
+struct file_data_t {
+    piece_id_t s_piece;
+    piece_id_t f_piece;
+    int pieces_copied;
+    size_t full_size;
+    unsigned char data[CACHED_PIECES_COUNT* DATA_BLOCK_LEN];
+};
+\end{lstlisting}
+
+Структура объединяет структуры выше, чтобы не передавать лишние па-
+раметры
+\begin{lstlisting}
+struct file_full_data_t {
+    struct file_data_t data;
+    struct file_udata_t udata[CACHED_QUEUE_LEN];
+};
+\end{lstlisting}
+
+Структура описывает одно активное соединение (подключение)
+\begin{lstlisting}
+struct active_connection {
+    int srv_sock;
+    int timeout;
+    int transmission_id;
+    int status;
+    piece_id_t piece_id;
+    file_id_t file_id;
+    pack_id_t pack_id;
+    struct file_full_data_t *data;
+    struct active_connection *next;
+    struct active_connection *prev;
+};
+\end{lstlisting}
+
+Список всех активных соединений (подключений)
+\begin{lstlisting}
+struct active_connections {
+    struct active_connection *q_head;
+    struct active_connection *q_tail;
+};
+\end{lstlisting}
+
+Структура для описания части файла, которую необходимо запросить
+\begin{lstlisting}
+struct pieces_queue {
+    piece_id_t max_piece_num; \\ Максимальный номер куска
+    piece_id_t cur_piece; \\ Содержит минимальный не запрошенный номер куска
+    signed int max_failed_piece_num; \\ Максимальный номер куска в failed_pieces
+    piece_id_t failed_pieces[MAX_PIECES_COUNT]; \\ Содержит неполученные куски файла
+    piece_id_t flushed_pieces_count; \\ Число записанных на диск кусков
+};
+\end{lstlisting}
+
+Структура определяет одну активную передачу
+\begin{lstlisting}
+struct transmission {
+    FILE *file;
+    char filename[FILE_NAME_MAX_LEN];
+    unsigned char filesum[MD5_DIGEST_LENGTH];
+    unsigned short status;
+    size_t filesize;
+    struct pieces_queue pieces;
+};
+\end{lstlisting}
+
+Структура описывает список всех активных передач
+\begin{lstlisting}
+struct transmissions {
+      struct transmission trm[MAX_TRANSMISSIONS];
+      unsigned char openned_trms[MAX_TRANSMISSIONS];
+      unsigned int count; \\ Число закрытых передач
+};
+\end{lstlisting}
+
+Функция обрабатывает сообщения, полученные от сервера\\
+\texttt{int process\_srv\_message(int sock, const char *msg, size\_t len);}
+\newpar
+Функция, реализующая работу диспетчера\\
+\texttt{void main\_dispatcher();}
+\newpar
+Функция, запускающая посылку файла\\
+\texttt{int receive\_file(const char *filename, const
+unsigned char *hsum, unsigned long fsize, const struct sockets\_queue *q);}
+Функция для обмена сообщениями с пользовательским интерфейсом\\
+\texttt{void setup\_gui\_acts(struct gui\_actions *acts);}
+\subsubsection*{Прототипы функций модуля Network}
+Функция, которая запускает процесс-сервер\\
+\texttt{int start\_server(socket\_callback process\_cli\_msg\_callback);}
+\newpar
+Функция, которая запускающая процесс-клиент\\
+\texttt{int start\_client(socket\_callback
+process\_srv\_msg\_callback,
+queue\_dispatcher dispatcher, struct sockets\_queue *q);}
+\newpar
+Функция, используемая для пересылки данных\\
+\texttt{int send\_data(int sock, char *buf, int len, int flags);}
+\newpar
+Функция, необходимая для обмена сообщениями
+с пользовательским приложением\\
+\texttt{void setup\_gui\_msgs(struct gui\_actions *acts);}
+\subsubsection*{Прототипы функция для обработки сообщений}
+Десериализация, полученного сообщения от клиента\\
+\texttt{int encode\_cli\_msg(struct cli\_fields *fields, const char *msg, int
+msg\_len);}
+\newpar
+Сериализация сообщения посылаемого клиенту\\
+\texttt{int decode\_cli\_msg(const struct cli\_fields *fields, char *msg);}
+\newpar
+Десериализация, полученного сообщения от сервера\\
+\texttt{int encode\_srv\_msg(struct srv\_fields *fields, const char *msg, int
+msg\_len);}
+\newpar
+Сериализация сообщения посылаемого серверу\\
+\texttt{int decode\_srv\_msg(const struct srv\_fields *fields, char *msg);}
+\newpar
+Декодирование ошибок (интерпретация)\\
+\texttt{void decode\_proto\_error(perror\_t e, char *s, int max\_len);}
+
+\subsubsection*{Callback-функции для обмена сообщениями с пользовательским приложением}
+\begin{lstlisting}
+struct gui_actions {
+    gui_recv_callback start_trm;
+    gui_recv_callback stop_trm;
+    gui_recv_callback terminate;
+    gui_send_callback answer;
+    gui_send_callback package_sent;
+    gui_send_callback package_received;
+    gui_send_callback server_added;
+    gui_send_callback client_added;
+    gui_send_callback server_removed;
+    gui_send_callback client_removed;
+    gui_send_callback file_received;
+    int sock;
+};
+\end{lstlisting}
+
+Опишем смысл функций в порядке следования в структуре:
+
+\begin{enumerate}
+    \item начать передачу
+    \item остановить передачу
+    \item завершить работу
+    \item ответить
+    \item отправленные пакеты
+    \item полученные пакеты
+    \item добавление клиента
+    \item добавление сервера
+    \item удаление клиента
+    \item удаление сервера
+    \item файл получен
+\end{enumerate}
+
+Следующая структура хранит массив активных сокетов
+\begin{lstlisting}
+struct sockets_queue {
+    int sockets[MAX_CONNECTIONS];
+    in_addr_t addrs[MAX_CONNECTIONS];
+    int count;
+};
+\end{lstlisting}
+
+Выше были приведены основные прототипы и структуры данных, которые не
+были указаны в технологическом разделе.
+
+\section*{Приложение Б}
+\newsection{Приложение Б}
+\addcontentsline{toc}{section}{Приложение Б}
+В данном приложении будут представлены исходные коды некоторых программных модулей проекта.
+\subsection*{Исходные коды модуля \texttt{proto.c}}
+\addcontentsline{toc}{subsection}{Исходные коды модуля \texttt{proto.c}}
+\lstinputlisting[language=C]{../backend/proto.c}
+\subsection*{Исходные коды модуля \texttt{srv.c}}
+\addcontentsline{toc}{subsection}{Исходные коды модуля \texttt{srv.c}}
+\newsection{Приложение Б}
+\lstinputlisting[language=C]{../backend/srv.c}
+\end{appendix}
